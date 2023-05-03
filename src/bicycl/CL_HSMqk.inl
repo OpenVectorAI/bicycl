@@ -1023,7 +1023,7 @@ bool CL_HSMqk_ZKAoK::Proof::verify (const CL_HSMqk_ZKAoK &C,
   CipherText cu (C.encrypt (pk, ClearText (C, u2_), u1_));
 
   /* ck = (c1^k, c2^k) */
-  CipherText ck (C.scal_ciphertexts (pk, c, k_, 0UL));
+  CipherText ck (C.scal_ciphertexts (pk, c, k_, Mpz (0UL)));
 
   QFI t1, t2;
 

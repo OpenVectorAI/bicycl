@@ -80,7 +80,7 @@ main (int argc, char *argv[])
       try
       {
         BICYCL::Mpz kmpz(argv[1]);
-        k = kmpz;
+        k = static_cast<unsigned long> (kmpz);
       }
       catch (const std::runtime_error& e)
       {

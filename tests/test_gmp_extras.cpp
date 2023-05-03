@@ -240,7 +240,7 @@ test_assignment_from_bignum (RandGen &randgen)
 
       v = bn;
       char *bn_str = BN_bn2dec (bn);
-      char *v_str = mpz_get_str (NULL, 10, v);
+      char *v_str = mpz_get_str (NULL, 10, static_cast<mpz_srcptr> (v));
 
       ret &= strcmp (bn_str, v_str) == 0;
 
@@ -255,28 +255,46 @@ test_assignment_from_bignum (RandGen &randgen)
 }
 
 bool
-test_convert_to_bignum (RandGen &randgen)
+test_pow_mod_with_precomp (RandGen &randgen)
 {
   bool ret = true;
 
-  for (int n = 10; n < 500; n+=3)
+  Mpz ref, r, fe, f2e, f3e;
+
+  for (size_t modulus_nbits = 50; modulus_nbits < 300; modulus_nbits += 50)
   {
-    for (int i = 0; i < 25; i++)
+    Mpz modulus (randgen.random_mpz_2exp (modulus_nbits));
+    if (modulus.is_even())
+      Mpz::add (modulus, modulus, 1);
+
+    for (size_t expo_nbits = 50; expo_nbits < 500; expo_nbits += 100)
     {
-      Mpz v (randgen.random_mpz_2exp (n));
-      if (randgen.random_bool ())
-        v.neg ();
+      size_t e = (expo_nbits + 3)/4;
 
-      BIGNUM *bn = v;
+      for (size_t i = 0; i < 100; i++)
+      {
+        size_t nbits = randgen.random_bool() ? expo_nbits : expo_nbits + 16;
+        Mpz exponent (randgen.random_mpz_2exp (nbits));
 
-      char *bn_str = BN_bn2dec (bn);
-      char *v_str = mpz_get_str (NULL, 10, v);
+        Mpz f (randgen.random_mpz (modulus));
 
-      ret &= strcmp (bn_str, v_str) == 0;
+        f3e = f;
+        for (size_t i = 0; i < 3*e; i++)
+        {
+          if (i == e)
+            fe = f3e;
+          if (i == 2*e)
+            f2e = f3e;
+          Mpz::mul (f3e, f3e, f3e);
+          Mpz::mod (f3e, f3e, modulus);
+        }
 
-      OPENSSL_free (bn_str);
-      BN_free (bn);
-      free (v_str);
+        Mpz::pow_mod (ref, f, exponent, modulus);
+
+        Mpz::pow_mod (r, f, exponent, modulus, e, fe, f2e, f3e);
+
+        ret &= (ref == r);
+      }
     }
   }
 
@@ -303,7 +321,7 @@ main (int argc, char *argv[])
   RUN_TEST_AND_PRINT_RESULT_LINE (test_mpz_partial_euclid_scratch, randgen);
   RUN_TEST_AND_PRINT_RESULT_LINE (test_JSF, randgen);
   RUN_TEST_AND_PRINT_RESULT_LINE (test_assignment_from_bignum, randgen);
-  RUN_TEST_AND_PRINT_RESULT_LINE (test_convert_to_bignum, randgen);
+  RUN_TEST_AND_PRINT_RESULT_LINE (test_pow_mod_with_precomp, randgen);
 
   return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }

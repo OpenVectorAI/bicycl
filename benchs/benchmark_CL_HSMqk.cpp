@@ -183,7 +183,7 @@ main (int argc, char *argv[])
 {
   RandGen randgen;
   randseed_from_argv (randgen, argc, argv);
- 
+
   std::cout << "security level | q_nbits | variant |    operation    | "
             << "  time   | time per op. " << std::endl;
 

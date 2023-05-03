@@ -43,12 +43,12 @@ string generate_desc (const CL_HSMqk &C, const string &name)
 bool CL_HSMqk_check_setup (const CL_HSMqk &C, const string & pre)
 {
   bool ret = true;
-  Mpz tmp;
+  Mpz tmp, one(1UL);
 
   ret &= C.q().is_prime ();
   ret &= C.p().is_prime ();
 
-  ret &= mpz_fdiv_ui (C.DeltaK(), 4) == 1;
+  ret &= mpz_fdiv_ui (static_cast<mpz_srcptr> (C.DeltaK()), 4) == 1;
 
   ret &= C.q().kronecker (C.p()) == -1;
 
@@ -68,7 +68,7 @@ bool CL_HSMqk_check_setup (const CL_HSMqk &C, const string & pre)
 
   /* Check that h and f are squares */
   ret &= C.genus (C.h()) == typename CL_HSMqk::Genus ({ 1, 1 });
-  ret &= C.genus (C.power_of_f(1UL)) == typename CL_HSMqk::Genus ({ 1, 1 });
+  ret &= C.genus (C.power_of_f(one)) == typename CL_HSMqk::Genus ({ 1, 1 });
 
   // TODO check precomputation values
 

@@ -463,7 +463,8 @@ void CL_HSM2k::from_Cl_DeltaK_to_Cl_Delta (QFI &f) const
     Mpz::mulby2k (t, t, 2*(k_-1));
     Mpz::sub (t, t, 1UL);
     t.neg();
-    QFI g (4UL, 4UL, t);
+    Mpz four (4UL);
+    QFI g (four, four, t);
     Cl_Delta().nucomp (f, f, g);
   }
 }

@@ -286,6 +286,13 @@ Mpz::Mpz (const std::string &s)
 
 /* */
 inline
+Mpz::Mpz (mpf_srcptr v) : Mpz()
+{
+  *this = v;
+}
+
+/* */
+inline
 Mpz::Mpz (const std::vector<unsigned char> &data, size_t nb_bits) : Mpz()
 {
   /* the binary data is interpreted most significant bit first */
@@ -294,6 +301,13 @@ Mpz::Mpz (const std::vector<unsigned char> &data, size_t nb_bits) : Mpz()
     throw std::runtime_error ("not enough data to read the number of bits");
   else
     divby2k (*this, *this, data.size() * CHAR_BIT - nb_bits);
+}
+
+/* */
+inline
+Mpz::Mpz (const BIGNUM *v) : Mpz()
+{
+  *this = v;
 }
 
 /* */
@@ -514,38 +528,22 @@ Mpz::operator mpz_srcptr() const
 
 /* */
 inline
-Mpz::operator unsigned long int () const
+Mpz::operator unsigned long () const
 {
   if (!mpz_fits_uint_p (mpz_))
-    throw std::runtime_error ("mpz value could not be parsed as an unsigned long int");
+    throw std::runtime_error ("mpz value could not be parsed as an unsigned long");
   else
     return mpz_get_ui (mpz_);
 }
 
 /* */
 inline
-Mpz::operator long int () const
+Mpz::operator long () const
 {
   if (!mpz_fits_sint_p (mpz_))
-    throw std::runtime_error ("mpz value could not be parsed as an long int");
+    throw std::runtime_error ("mpz value could not be parsed as an long");
   else
     return mpz_get_si (mpz_);
-}
-
-/* */
-inline
-Mpz::operator BIGNUM *() const
-{
-  size_t len;
-  unsigned char * tmp =
-                  (unsigned char *) mpz_export (NULL, &len, -1, 1, 0, 0, mpz_);
-  BIGNUM *ret = BN_lebin2bn (tmp, len, NULL);
-
-  if (mpz_sgn (mpz_) < 0)
-    BN_set_negative (ret, 1);
-
-  free (tmp);
-  return ret;
 }
 
 /* */
@@ -560,6 +558,13 @@ inline
 size_t Mpz::ndigits () const
 {
   return mpz_sizeinbase (mpz_, 10);
+}
+
+/* */
+inline
+size_t Mpz::nlimbs () const
+{
+  return mpz_size (mpz_);
 }
 
 /* */
@@ -605,6 +610,13 @@ bool Mpz::is_prime (int reps) const
 {
   int r = mpz_probab_prime_p (mpz_, reps);
   return (r > 0);
+}
+
+/* */
+inline
+bool Mpz::is_divisible_by (const Mpz &d) const
+{
+  return mpz_divisible_p (mpz_, d.mpz_);
 }
 
 /* */
@@ -984,10 +996,10 @@ void Mpz::pow_mod (Mpz &r, const Mpz &f, const Mpz &n, const Mpz &m, size_t e,
       _mpz_realloc (tab[i].mpz_, nlimbs);
     }
 
-    redcify (PTR(tab[0].mpz_), PTR(f.mpz_), mpz_size(f), mp, nlimbs, t0, t1);
-    redcify (PTR(tab[1].mpz_), PTR(fe.mpz_), mpz_size (fe), mp, nlimbs, t0, t1);
-    redcify (PTR(tab[3].mpz_), PTR(f2e.mpz_), mpz_size (f2e), mp, nlimbs, t0, t1);
-    redcify (PTR(tab[7].mpz_), PTR(f3e.mpz_), mpz_size (f3e), mp, nlimbs, t0, t1);
+    redcify (PTR(tab[0].mpz_), PTR(f.mpz_), f.nlimbs(), mp, nlimbs, t0, t1);
+    redcify (PTR(tab[1].mpz_), PTR(fe.mpz_), fe.nlimbs(), mp, nlimbs, t0, t1);
+    redcify (PTR(tab[3].mpz_), PTR(f2e.mpz_), f2e.nlimbs(), mp, nlimbs, t0, t1);
+    redcify (PTR(tab[7].mpz_), PTR(f3e.mpz_), f3e.nlimbs(), mp, nlimbs, t0, t1);
 
     MUL_REDC (tab[2], tab[1], tab[0]);
 
@@ -1007,7 +1019,7 @@ void Mpz::pow_mod (Mpz &r, const Mpz &f, const Mpz &n, const Mpz &m, size_t e,
       int b = n.tstbit (j-1);
       SQR_REDC (r, r);
       if (b)
-        MUL_REDC (r, r, tab[f3e]);
+        MUL_REDC (r, r, tab[7]);
     }
 
     for (size_t j = e; j > 0; j--)
@@ -1174,7 +1186,7 @@ void Mpz::ceil_abslog_square (Mpz &r, const Mpz &n)
   mpf_init2 (t, nbits);
   mpf_init2 (tmp, nbits);
 
-  mpf_set_z (nf, n);
+  mpf_set_z (nf, n.mpz_);
   mpf_abs (nf, nf);
 
   /* compute nf and m such that log(|n|)^2 = 4^m*log(nf)^2 with 0<nf<2 */
@@ -1438,7 +1450,8 @@ int Mpz::richcmp (const Mpz &a, long v)
 template <>
 void HashAlgo::hash_update (const Mpz &v)
 {
-  hash_update_implem (mpz_limbs_read (v), mpz_size (v) * sizeof (mp_limb_t));
+  mpz_srcptr vptr = static_cast<mpz_srcptr> (v);
+  hash_update_implem (mpz_limbs_read (vptr), v.nlimbs() * sizeof (mp_limb_t));
 }
 
 /******************************************************************************/
@@ -1476,7 +1489,7 @@ RandGen::~RandGen ()
 inline void
 RandGen::set_seed (const Mpz &seed)
 {
-  gmp_randseed (rand_, seed);
+  gmp_randseed (rand_, seed.mpz_);
 }
 
 /* */
@@ -1484,7 +1497,7 @@ inline
 Mpz RandGen::random_mpz (const Mpz &m)
 {
   Mpz r;
-  mpz_urandomm (r.mpz_, rand_, m);
+  mpz_urandomm (r.mpz_, rand_, m.mpz_);
   return r;
 }
 

@@ -105,7 +105,7 @@ namespace BICYCL
       }
 
       /* Test encryption + decryption of 0 */
-      ClearText m (C, 0UL);
+      ClearText m (C, Mpz (0UL));
       CipherText c (C.encrypt (pk, m, randgen));
       ClearText t (C.decrypt (sk, c));
       ret &= (m == t);
@@ -181,7 +181,7 @@ namespace BICYCL
       for (size_t i = 0; i < niter; i++)
       {
         ClearText m (C, randgen);
-        Mpz s = randgen.random_mpz (0x10000UL); /* arbitrary bound */
+        Mpz s = randgen.random_mpz_2exp (16); /* arbitrary bound: 2^16 */
         ClearText ms = C.scal_cleartexts (m, s);
         CipherText c = C.encrypt (pk, m, randgen);
         CipherText cs = C.scal_ciphertexts (pk, c, s, randgen);

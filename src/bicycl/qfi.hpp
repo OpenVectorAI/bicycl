@@ -57,11 +57,11 @@ namespace BICYCL
       QFI (const QFI & other) = default;
       QFI (const QFICompressedRepresentation &compressed_form, const Mpz &disc);
       QFI (QFI && other) = default;
-  
+
       /* assignment operators */
       QFI & operator= (const QFI & other) = default;
       QFI & operator= (QFI && other) = default;
-  
+
       /* comparison operators */
       bool operator== (const QFI & other) const;
 

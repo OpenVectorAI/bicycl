@@ -193,10 +193,12 @@ Mpz QFI::eval (const Mpz &x, const Mpz &y) const
 inline
 QFICompressedRepresentation QFI::compressed_repr () const
 {
+  Mpz zero (0UL), one(1UL);
+
   if (b_.is_zero())
-    return QFICompressedRepresentation (a_, 0UL, 0UL, 0UL, false);
+    return QFICompressedRepresentation (a_, zero, zero, zero, false);
   else if (a_ == b_)
-    return QFICompressedRepresentation (1UL, a_, 0UL, 0UL, false);
+    return QFICompressedRepresentation (one, a_, zero, zero, false);
   else
   {
     Mpz b, g, ap, f, l, b0;
@@ -692,7 +694,7 @@ void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
 #ifdef BICYCL_WITH_TIMINGS
   uint64_t _time, _time0 = get_realtime_ns();
 #endif
-  mp_size_t Lsize = mpz_size (L); /* depending on log2(L) may need to do -1 */
+  mp_size_t Lsize = L.nlimbs(); /* depending on log2(L) may need to do -1 */
 
   Mpz::add (s, f1.b_, f2.b_);
   Mpz::divby2 (s, s);
@@ -724,7 +726,7 @@ void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
     //Mpz::addmul (Dx, u, f2.c_);
     //mpz_neg_inplace (Dx); /* Dx = -(v*c1+u*c2) */
   }
-  else if (mpz_divisible_p (s, F))
+  else if (s.is_divisible_by (F))
   {
     Ax = F;
     Mpz::mul (Bx, m, v); /* Bx = m*v */
@@ -887,7 +889,7 @@ void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, Mpz &Ax, Mpz &Dx,
   uint64_t _time, _time0 = get_realtime_ns();
 #endif
 
-  mp_size_t Lsize = mpz_size (L);
+  mp_size_t Lsize = L.nlimbs();
 
   /* Ax = d = gcd(a,b) = u*a + v*b (u and v are stored in m11 and m01) */
 #ifdef BICYCL_WITH_TIMINGS
@@ -1022,7 +1024,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, const Mpz &L)
     for (mp_limb_t i = 1; i < u; i++)
       NUCOMP (tab[i], tab[i-1], ff, 0); /* tab[i] <- tab[i-1]*ff */
 
-    int j = mpz_sizeinbase (n, 2) - 1;
+    int j = n.nbits() - 1;
     mp_limb_t c;
 
     /* first digit is done out of the main loop */
@@ -1422,7 +1424,7 @@ const Mpz & ClassGroup::class_number_bound () const
 
     Mpz::ceil_abslog_square (primebound, disc_);
 
-    size_t prec = mpz_sizeinbase (disc_, 2) + 50;
+    size_t prec = disc_.nbits() + 50;
 
     mpf_t acc, t, d;
     mpf_inits (acc, t, d, NULL);
@@ -1439,8 +1441,8 @@ const Mpz & ClassGroup::class_number_bound () const
         Mpz::add (tmp, l, -k);
       else
         Mpz::sub (tmp, l, k);
-      mpf_set_z (t, l);
-      mpf_set_z (d, tmp);
+      mpf_set_z (t, static_cast<mpz_srcptr> (l));
+      mpf_set_z (d, static_cast<mpz_srcptr> (tmp));
       mpf_div (t, t, d);
       mpf_mul (acc, acc, t);
     }
@@ -1449,7 +1451,7 @@ const Mpz & ClassGroup::class_number_bound () const
     Mpz::sqrt (tmp, tmp); /* tmp <- floor(sqrt(|D|)) */
     Mpz::mul (tmp, tmp, 21);
     mpf_div_ui (acc, acc, 88);
-    mpf_set_z (t, tmp);
+    mpf_set_z (t, static_cast<mpz_srcptr> (tmp));
     mpf_mul (t, t, acc);
     mpf_ceil (t, t);
 

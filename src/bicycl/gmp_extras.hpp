@@ -64,7 +64,7 @@ namespace BICYCL
                                           mp_bitcnt_t n)
     {
         mpz_fdiv_r_2exp (r, a, n);
-    
+
         /* substract 2^n if needed */
         if (mpz_tstbit (r, n-1))
         {
@@ -84,15 +84,17 @@ namespace BICYCL
   {
     protected:
       mpz_t mpz_;
-  
+
     public:
       /* constructors */
       Mpz ();
       Mpz (const Mpz &);
       Mpz (Mpz &&);
-      Mpz (unsigned long);
-      Mpz (long);
-      Mpz (const std::string &);
+      explicit Mpz (unsigned long);
+      explicit Mpz (long);
+      explicit Mpz (const std::string &);
+      explicit Mpz (mpf_srcptr);
+      explicit Mpz (const BIGNUM *);
       Mpz (const std::vector<unsigned char> &, size_t);
 
       /* destructor */
@@ -128,15 +130,15 @@ namespace BICYCL
       bool operator>= (long) const;
 
       /* conversion */
-      operator mpz_srcptr() const;
-      operator unsigned long int() const;
-      operator long int() const;
-      operator BIGNUM *() const;
+      explicit operator mpz_srcptr() const;
+      explicit operator unsigned long() const;
+      explicit operator long() const;
 
       /* getters */
       /* */
       size_t nbits () const;
       size_t ndigits () const;
+      size_t nlimbs () const;
       int sgn () const;
 
       /* tests */
@@ -145,6 +147,7 @@ namespace BICYCL
       bool is_even () const;
       bool is_one () const;
       bool is_prime (int reps=BICYCL_GMP_PRIMALITY_TESTS_ITERATION) const;
+      bool is_divisible_by (const Mpz &d) const;
 
       /* misc */
       void neg ();
@@ -161,7 +164,7 @@ namespace BICYCL
 
       /* */
       static void swap (Mpz &, Mpz &);
-  
+
       /* arithmetic */
       static void abs (Mpz &, const Mpz &);
       static int cmpabs (const Mpz &, const Mpz &);

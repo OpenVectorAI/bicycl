@@ -49,7 +49,7 @@ int main (int argc, char* argv[])
     size_t niter = (size_t) N;
 
     ClassGroup Cl (D); /* build the class group of discriminant D */
-    QFI f = Cl.primeform (2UL); /* build the prime form for p = 2 */
+    QFI f = Cl.primeform (Mpz (2UL)); /* build the prime form for p = 2 */
 
     Cl.nudupl (f, f, niter); /* perform niter nudupl */
     std::cout << f.a() << std::endl << f.b(); /* print the coefficients */

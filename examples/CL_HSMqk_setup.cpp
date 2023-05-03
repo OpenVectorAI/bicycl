@@ -89,7 +89,7 @@ main (int argc, char *argv[])
       try
       {
         BICYCL::Mpz qsizempz(argv[1]);
-        qsize = qsizempz;
+        qsize = static_cast<unsigned long> (qsizempz);
       }
       catch (const std::runtime_error& e)
       {
@@ -106,7 +106,7 @@ main (int argc, char *argv[])
       try
       {
         BICYCL::Mpz kmpz(argv[1]);
-        k = kmpz;
+        k = static_cast<unsigned long> (kmpz);
       }
       catch (const std::runtime_error& e)
       {

@@ -48,7 +48,7 @@ bool Paillier_test_encryption (const Paillier &C, RandGen &randgen,
   }
 
   /* Test encryption + decryption of 0 */
-  Paillier::ClearText m (C, pk, 0UL);
+  Paillier::ClearText m (C, pk, Mpz (0UL));
   Paillier::CipherText c (C.encrypt (pk, m, randgen));
   Paillier::ClearText t (C.decrypt (pk, sk, c));
   ret &= (m == t);
