@@ -1277,7 +1277,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
 
 /* */
 template <>
-void HashAlgo::hash_update (const QFI &f)
+void OpenSSL::HashAlgo::hash_update (const QFI &f)
 {
   hash_update (f.a());
   hash_update (f.b());

@@ -1446,14 +1446,6 @@ int Mpz::richcmp (const Mpz &a, long v)
   return mpz_cmp_si (a.mpz_, v);
 }
 
-/* */
-template <>
-void HashAlgo::hash_update (const Mpz &v)
-{
-  mpz_srcptr vptr = static_cast<mpz_srcptr> (v);
-  hash_update_implem (mpz_limbs_read (vptr), v.nlimbs() * sizeof (mp_limb_t));
-}
-
 /******************************************************************************/
 /******************************************************************************/
 /******************************************************************************/

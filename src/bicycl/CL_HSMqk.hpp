@@ -25,9 +25,7 @@
 #include <tuple>
 #include <stdexcept>
 
-#include <openssl/obj_mac.h> /* for NID_shake128 */
-
-#include "bicycl/hash.hpp"
+#include "bicycl/openssl_wrapper.hpp"
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/qfi.hpp"
 #include "bicycl/CL_HSM_utils.hpp"
@@ -277,7 +275,7 @@ namespace BICYCL
     protected:
       size_t C_exp2_; /* Use 2^C_exp2_ as the bound in the ZK proof */
       Mpz bound_extra_;
-      mutable HashAlgo H_;
+      mutable OpenSSL::HashAlgo H_;
 
     public:
       using CL_HSMqk::SecretKey;

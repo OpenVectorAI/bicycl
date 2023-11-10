@@ -26,9 +26,9 @@
 #endif
 
 #include "bicycl/gmp_extras.hpp"
+#include "bicycl/openssl_wrapper.hpp"
 #include "bicycl/qfi.hpp"
 #include "bicycl/seclevel.hpp"
-#include "bicycl/hash.hpp"
 #include "bicycl/ec.hpp"
 #include "bicycl/CL_HSMqk.hpp"
 #include "bicycl/CL_HSM2k.hpp"

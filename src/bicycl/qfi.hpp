@@ -25,7 +25,7 @@
 #include <cstddef>
 #include <stdexcept>
 
-#include "bicycl/hash.hpp"
+#include "bicycl/openssl_wrapper.hpp"
 #include "bicycl/gmp_extras.hpp"
 
 namespace BICYCL

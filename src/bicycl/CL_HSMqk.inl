@@ -890,14 +890,14 @@ CL_HSMqk::Genus CL_HSMqk::genus (const QFI &f) const
 
 /* */
 template <>
-void HashAlgo::hash_update (const CL_HSMqk::PublicKey &pk)
+void OpenSSL::HashAlgo::hash_update (const CL_HSMqk::PublicKey &pk)
 {
   hash_update (pk.elt());
 }
 
 /* */
 template <>
-void HashAlgo::hash_update (const CL_HSMqk::CipherText &c)
+void OpenSSL::HashAlgo::hash_update (const CL_HSMqk::CipherText &c)
 {
   hash_update (c.c1());
   hash_update (c.c2());
@@ -908,7 +908,7 @@ void HashAlgo::hash_update (const CL_HSMqk::CipherText &c)
 inline
 CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
                                                               const Mpz &t)
-  : CL_HSMqk (cryptosystem), C_exp2_ (C_exp2), H_ (NID_shake128)
+  : CL_HSMqk (cryptosystem), C_exp2_ (C_exp2), H_ (OpenSSL::HashAlgo::SHAKE128)
 {
   if (C_exp2_ >= M_.nbits())
     throw std::runtime_error ("the bound C=2^C_exp2 must be smaller than q^k");
