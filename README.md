@@ -8,3 +8,10 @@ class groups of imaginary quadratic fields, together with a set of cryptographic
 primitives based on class groups.
 
 The documentation is available at https://crypto.lirmm.net/bicycl
+
+
+<details open>
+  <summary>:warning: Warning</summary>
+  The BICYCL library is a research project and is **not** production-ready.
+  It should **not** be used in real cryptographic projects.
+</details>
