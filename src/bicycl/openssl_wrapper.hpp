@@ -43,10 +43,6 @@ namespace BICYCL
     /*****/
     class HashAlgo
     {
-      protected:
-        const EVP_MD *md_;
-        EVP_MD_CTX *mdctx_;
-
       public:
         using Digest = std::vector<unsigned char>;
 
@@ -55,9 +51,15 @@ namespace BICYCL
         /* constructors */
         HashAlgo (SecLevel seclevel); /* Use SHA3 with desired security level */
         HashAlgo (int nid);
+        HashAlgo (const HashAlgo &H);
+        HashAlgo (HashAlgo &&H);
 
         /* destructor */
         ~HashAlgo ();
+
+        /* assignment */
+        HashAlgo & operator= (const HashAlgo &H);
+        HashAlgo & operator= (HashAlgo &&H);
 
         /* getters */
         int digest_size () const;
@@ -70,134 +72,166 @@ namespace BICYCL
         void hash_update (const First & first, const Rem&... rem);
 
         void hash_update_implem (const void *ptr, size_t n);
+
+      private:
+        static EVP_MD_CTX * new_ctx_ ();
+
+        const EVP_MD *md_;
+        EVP_MD_CTX *mdctx_;
     };
+
+    /*****/
+    class ECGroup; /* forward declaration */
 
     /*****/
     class BN
     {
-      friend class ECGroup;
+      friend ECGroup;
 
       public:
+        using RawSrcPtr = const BIGNUM *;
+
+        /* constructors */
         BN ();
         BN (const BN &other);
         BN (BN &&other);
-        BN & operator= (const BN &other);
-        BN & operator= (BN &&other);
+
+        /* destructor */
         ~BN ();
 
-        /* from Digest */
-        explicit BN (const HashAlgo::Digest &digest);
-        BN & operator= (const HashAlgo::Digest &digest);
+        /* assignment */
+        BN & operator= (const BN &other);
+        BN & operator= (BN &&other);
 
         /* comparisons */
-        bool operator== (const BN &other) const;
+        bool operator== (BN::RawSrcPtr other) const;
         bool is_zero () const;
 
         /* */
         int num_bytes () const;
-        static void add (BN &r, const BN&a, const BN &b);
+        static void add (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b);
 
         /* conversion */
-        explicit operator const BIGNUM *() const;
+        operator BN::RawSrcPtr () const;
+        void to_bytes (std::vector<unsigned char> &dst) const;
+        void from_bytes (const std::vector<unsigned char> &src);
 
       private:
         BIGNUM *bn_;
     }; /* BN */
 
     /*****/
-    template <typename Cryptosystem>
     class ECPoint
     {
-      protected:
-        EC_POINT *P_;
+      friend ECGroup;
 
       public:
-        ECPoint (const Cryptosystem &C);
-        ECPoint (const Cryptosystem &C, const EC_POINT *Q);
+        using RawSrcPtr = const EC_POINT *;
+
+        /* constructors */
+        ECPoint (const ECGroup &E);
+        ECPoint (const ECGroup &E, ECPoint::RawSrcPtr Q);
+        ECPoint (const ECPoint &) = delete;
+        ECPoint (ECPoint &&);
+
+        /* assignment */
+        ECPoint & operator= (ECPoint::RawSrcPtr Q);
+        ECPoint & operator= (const ECPoint &);
+        ECPoint & operator= (ECPoint &&);
+
+        /* destructor */
         ~ECPoint ();
 
-        ECPoint & operator= (const EC_POINT *Q);
+        operator ECPoint::RawSrcPtr () const;
 
-        friend Cryptosystem;
-
-      protected:
-        operator EC_POINT *() const;
+      private:
+        EC_POINT *P_;
     }; /* ECPoint */
 
-
     /*****/
-    template <typename Cryptosystem>
     class ECKey
     {
-      protected:
-        EC_KEY *key_;
+      friend ECGroup;
 
       public:
         /* constructors */
-        ECKey (const Cryptosystem &);
+        ECKey (const ECGroup &E);
+        ECKey (const ECKey &);
+        ECKey (ECKey &&);
 
         /* destructor */
         ~ECKey ();
 
-        friend Cryptosystem;
-
-      protected:
-        /* conversion */
-        operator const BIGNUM *() const;
+        /* assignment */
+        ECKey & operator= (const ECKey &);
+        ECKey & operator= (ECKey &&);
 
         /* getters */
-        const EC_POINT * get_ec_point () const;
+        BN::RawSrcPtr get_value () const;
+        ECPoint::RawSrcPtr get_ec_point () const;
+
+      private:
+        EC_KEY *key_;
     }; /* ECKey */
 
     /****/
     class ECGroup
     {
-      protected:
-        EC_GROUP *ec_group_;
-        Mpz order_;
-        BN_CTX *ctx_;
+      /* Constructors of ECPoint and ECKey need to access ec_group_ to create
+       * EC_POINT * and EC_KEY *.
+       */
+      friend ECPoint::ECPoint (const ECGroup &);
+      friend ECPoint::ECPoint (const ECGroup &, ECPoint::RawSrcPtr);
+      friend ECKey::ECKey (const ECGroup &);
 
       public:
         /* constructors */
         ECGroup (SecLevel seclevel);
+        ECGroup (const ECGroup &G) = delete;
+        ECGroup (ECGroup &&G);
 
         /* destructor */
         ~ECGroup ();
 
+        /* assignment */
+        ECGroup & operator= (const ECGroup &G) = delete;
+        ECGroup & operator= (ECGroup &&G);
+
         /* getters */
         const Mpz & order () const;
 
-        /* Wrapper to easily create EC_POINT * and EC_KEY *.
-         * Return values must be freed using EC_POINT_free or EC_KEY_free.
-         */
-        EC_POINT * new_ec_point () const;
-        EC_POINT * new_ec_point_copy (const EC_POINT *P) const;
-        EC_KEY * new_ec_key () const;
+        /* */
+        ECPoint::RawSrcPtr gen () const;
+        bool is_on_curve (ECPoint::RawSrcPtr P) const;
+        bool is_at_infinity (ECPoint::RawSrcPtr P) const;
+
+        /* elliptic operations */
+        void get_coords_of_point (BN &x, BN &y, ECPoint::RawSrcPtr P) const;
+        void get_x_coord_of_point (BN &x, ECPoint::RawSrcPtr P) const;
+        bool ec_point_eq (ECPoint::RawSrcPtr P, ECPoint::RawSrcPtr Q) const;
+        void ec_add (ECPoint &R, ECPoint::RawSrcPtr P,
+                                 ECPoint::RawSrcPtr Q) const;
+        void scal_mul_gen (ECPoint &R, BN::RawSrcPtr n) const;
+        void scal_mul (ECPoint &R, BN::RawSrcPtr n,
+                                   ECPoint::RawSrcPtr P) const;
+        void scal_mul (ECPoint &R, BN::RawSrcPtr m, BN::RawSrcPtr n,
+                                                    ECPoint::RawSrcPtr P) const;
+
+        /* arithmetic operations modulo the group order */
+        void mod_order (BN &r, BN::RawSrcPtr a) const;
+        void add_mod_order (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b) const;
+        void mul_mod_order (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b) const;
+        void inverse_mod_order (BN &r, BN::RawSrcPtr a) const;
 
       protected:
         /* utils */
-        const EC_POINT * gen () const;
-        bool has_correct_order (const EC_POINT *G) const;
+        bool has_correct_order (ECPoint::RawSrcPtr P) const;
+        bool is_positive_less_than_order (BN::RawSrcPtr v) const;
 
-        /* arithmetic operations modulo the group order */
-        void mod_order (BN &r, const BN &a) const;
-        void add_mod_order (BN &r, const BN &a, const BIGNUM *b) const;
-        void mul_mod_order (BN &r, const BN &a, const BN &b) const;
-        void mul_mod_order (BN &r, const BN &a, const BIGNUM *b) const;
-        void inverse_mod_order (BN &r, const BN &a) const;
-        void inverse_mod_order (BN &r, const BIGNUM *a) const;
-        bool is_positive_less_than_order (const BN &v) const;
-
-        /* elliptic operations */
-        bool ec_point_eq (const EC_POINT *P, const EC_POINT *Q) const;
-        void get_coords_of_point (BN &x, BN &y, const EC_POINT *P) const;
-        void get_x_coord_of_point (BN &x, const EC_POINT *P) const;
-        void ec_add (EC_POINT *R, const EC_POINT *P, const EC_POINT *Q) const;
-        void scal_mul_gen (EC_POINT *R, const BN &n) const;
-        void scal_mul (EC_POINT *R, const BN &n, const EC_POINT *P) const;
-        void scal_mul (EC_POINT *R, const BIGNUM *n, const EC_POINT *P) const;
-        void scal_mul (EC_POINT *R, const BN &m, const BN &n, const EC_POINT *P) const;
-
+      private:
+        EC_GROUP *ec_group_;
+        Mpz order_;
+        BN_CTX *ctx_;
     }; /* ECGroup */
 
     #include "openssl_wrapper.inl"

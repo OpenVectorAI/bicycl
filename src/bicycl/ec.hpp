@@ -30,25 +30,23 @@ namespace BICYCL
   /*****/
   class ECDSA : public OpenSSL::ECGroup
   {
-    protected:
-      mutable OpenSSL::HashAlgo H_;
-
     public:
-      using SecretKey = OpenSSL::ECKey<ECDSA>;
-      using PublicKey = OpenSSL::ECPoint<ECDSA>;
+      using SecretKey = OpenSSL::ECKey;
+      using PublicKey = OpenSSL::ECPoint;
       using Message = std::vector<unsigned char>;
 
       /*** Signature ***/
       class Signature
       {
-        protected:
-          OpenSSL::BN r_, s_;
-
         public:
           /* constructors */
           Signature (const ECDSA &C, const SecretKey &sk, const Message &m);
 
-          friend ECDSA;
+          bool verify (const ECDSA &C, const PublicKey &Q,
+                                       const Message &m) const;
+
+        private:
+          OpenSSL::BN r_, s_;
       };
 
       /* constructors */
@@ -58,36 +56,37 @@ namespace BICYCL
       SecretKey keygen () const;
       PublicKey keygen (const SecretKey &sk) const;
       Signature sign (const SecretKey &sk, const Message &m) const;
-      bool verif (const Signature &s, const PublicKey &pk, const Message &m) const;
+      bool verif (const Signature &s, const PublicKey &Q,
+                                      const Message &m) const;
 
       /* utils */
       Message random_message () const;
 
     protected:
       void hash_message (OpenSSL::BN &h, const Message &m) const;
+
+    private:
+      mutable OpenSSL::HashAlgo H_;
   }; /* ECDSA */
 
   /*****/
   class ECNIZK : public OpenSSL::ECGroup
   {
-    protected:
-      mutable OpenSSL::HashAlgo H_;
-
     public:
-      using SecretValue = OpenSSL::ECKey<ECNIZK>;
-      using PublicValue = OpenSSL::ECPoint<ECNIZK>;
+      using SecretValue = OpenSSL::ECKey;
+      using PublicValue = OpenSSL::ECPoint;
 
       class Proof
       {
-        protected:
-          OpenSSL::ECPoint<ECNIZK> R_;
-          OpenSSL::BN c_;
-          OpenSSL::BN z_;
-
         public:
           Proof (const ECNIZK &C, const SecretValue &s);
 
           bool verify (const ECNIZK &C, const PublicValue &Q) const;
+
+        private:
+          OpenSSL::ECPoint R_;
+          OpenSSL::BN c_;
+          OpenSSL::BN z_;
       };
 
       /* constructors */
@@ -97,14 +96,16 @@ namespace BICYCL
 
       /* crypto protocol */
       Proof noninteractive_proof (const SecretValue &s) const;
-      bool noninteractive_verify (const PublicValue &Q,
-                                  const Proof &proof) const;
+      bool noninteractive_verify (const Proof &proof,
+                                  const PublicValue &Q) const;
 
     protected:
       /* utils */
-      void hash_for_challenge (OpenSSL::BN &c, const EC_POINT *R,
-                                               const EC_POINT *Q) const;
+      void hash_for_challenge (OpenSSL::BN &c, OpenSSL::ECPoint::RawSrcPtr R,
+                                          OpenSSL::ECPoint::RawSrcPtr Q) const;
 
+    private:
+      mutable OpenSSL::HashAlgo H_;
   }; /* ECNIZK */
 
   #include "ec.inl"

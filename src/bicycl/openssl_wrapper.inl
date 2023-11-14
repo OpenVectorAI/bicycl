@@ -33,14 +33,21 @@ void random_bytes (unsigned char *buf, int num)
 /******************************************************************************/
 /* */
 inline
-HashAlgo::HashAlgo (int nid) : md_(EVP_get_digestbynid (nid))
+EVP_MD_CTX * HashAlgo::new_ctx_ ()
+{
+  EVP_MD_CTX *r = EVP_MD_CTX_new ();
+  if (r == NULL)
+    throw std::runtime_error ("EVP_MD_CTX_new failed in HashAlgo");
+  return r;
+}
+
+/* */
+inline
+HashAlgo::HashAlgo (int nid) : md_(EVP_get_digestbynid (nid)),
+                               mdctx_ (new_ctx_())
 {
   if (md_ == NULL)
-    throw std::runtime_error ("could not allocate EVP from nid in HashAlgo");
-
-  mdctx_ = EVP_MD_CTX_new ();
-  if (mdctx_ == NULL)
-    throw std::runtime_error ("EVP_MD_CTX_new failed in HashAlgo");
+    throw std::runtime_error ("could not set EVP from nid in HashAlgo");
 }
 
 /* */
@@ -51,9 +58,44 @@ HashAlgo::HashAlgo (SecLevel seclevel) : HashAlgo (seclevel.sha3_openssl_nid())
 
 /* */
 inline
+HashAlgo::HashAlgo (const HashAlgo &H) : md_ (H.md_), mdctx_ (new_ctx_())
+{
+  operator= (H);
+}
+
+/* */
+inline
+HashAlgo::HashAlgo (HashAlgo &&H) : md_ (H.md_), mdctx_ (H.mdctx_)
+{
+  H.mdctx_ = NULL;
+}
+
+/* */
+inline
 HashAlgo::~HashAlgo ()
 {
   EVP_MD_CTX_free (mdctx_);
+}
+
+/* */
+inline
+HashAlgo & HashAlgo::operator= (const HashAlgo &H)
+{
+  md_ = H.md_;
+  int ret = EVP_MD_CTX_copy_ex (mdctx_, H.mdctx_);
+  if (ret != 1)
+    throw std::runtime_error ("could not copy EVP_MD_CTX");
+  return *this;
+}
+
+/* */
+inline
+HashAlgo & HashAlgo::operator= (HashAlgo &&H)
+{
+  md_ = H.md_;
+  mdctx_ = H.mdctx_;
+  H.mdctx_ = NULL;
+  return *this;
 }
 
 /* */
@@ -167,19 +209,9 @@ BN::~BN ()
 
 /* */
 inline
-bool BN::operator== (const BN &other) const
+bool BN::operator== (BN::RawSrcPtr other) const
 {
-  return BN_cmp (bn_, other.bn_) == 0;
-}
-
-/* */
-inline
-BN & BN::operator= (const HashAlgo::Digest &digest)
-{
-  const BIGNUM *ret = BN_bin2bn (digest.data(), digest.size(), bn_);
-  if (ret == NULL)
-    throw std::runtime_error ("Could not set BIGNUM from binary");
-  return *this;
+  return BN_cmp (bn_, other) == 0;
 }
 
 /* */
@@ -198,49 +230,77 @@ int BN::num_bytes () const
 
 /* */
 inline
-void BN::add (BN &r, const BN&a, const BN &b)
+void BN::add (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b)
 {
-  int ret = BN_add (r.bn_, a.bn_, b.bn_);
+  int ret = BN_add (r.bn_, a, b);
   if (ret != 1)
     throw std::runtime_error ("BN_add failed");
 }
 
 /* */
 inline
-BN::operator const BIGNUM *() const
+BN::operator BN::RawSrcPtr () const
 {
   return bn_;
+}
+
+/* */
+inline
+void BN::to_bytes (std::vector<unsigned char> &dst) const
+{
+  dst.resize (num_bytes());
+  BN_bn2bin (bn_, dst.data());
+}
+
+/* */
+inline
+void BN::from_bytes (const std::vector<unsigned char> &src)
+{
+  const BIGNUM *ret = BN_bin2bn (src.data(), src.size(), bn_);
+  if (ret == NULL)
+    throw std::runtime_error ("Could not set BIGNUM from binary");
 }
 
 /* */
 template <>
 void HashAlgo::hash_update (const OpenSSL::BN &v)
 {
-  std::vector<unsigned char> bin (v.num_bytes ());
-  BN_bn2bin (static_cast<const BIGNUM *>(v), bin.data());
+  std::vector<unsigned char> bin;
+  v.to_bytes (bin);
   hash_update (bin);
 }
 
 /****************************************************************************/
 /* */
-template <typename Cryptosystem>
 inline
-ECPoint<Cryptosystem>::ECPoint (const Cryptosystem &C) : P_(C.new_ec_point())
+ECPoint::ECPoint (const ECGroup &E) : P_(NULL)
 {
+  P_ = EC_POINT_new (E.ec_group_);
+  if (P_ == NULL)
+    throw ("EC_POINT_new failed in ECPoint constructor");
 }
 
 /* */
-template <typename Cryptosystem>
 inline
-ECPoint<Cryptosystem>::ECPoint (const Cryptosystem &C, const EC_POINT *Q)
-  : P_(C.new_ec_point_copy (Q))
+ECPoint::ECPoint (const ECGroup &E, ECPoint::RawSrcPtr Q) : P_(NULL)
 {
+  P_ = EC_POINT_dup (Q, E.ec_group_);
+  if (P_ == NULL)
+    throw ("EC_POINT_dup failed in ECPoint constructor");
 }
 
 /* */
-template <typename Cryptosystem>
 inline
-ECPoint<Cryptosystem> & ECPoint<Cryptosystem>::operator= (const EC_POINT *Q)
+ECPoint::ECPoint (ECPoint &&Q) : P_(Q.P_)
+{
+  Q.P_ = NULL;
+}
+
+/*
+ * Assumes Q can be copied into P_ (must be init with compatible ECGroup).
+ */
+inline
+ECPoint & ECPoint::operator= (ECPoint::RawSrcPtr Q)
 {
   int ret = EC_POINT_copy (P_, Q);
   if (ret != 1)
@@ -248,51 +308,110 @@ ECPoint<Cryptosystem> & ECPoint<Cryptosystem>::operator= (const EC_POINT *Q)
   return *this;
 }
 
-/* */
-template <typename Cryptosystem>
+/*
+ * Assumes Q can be copied into P_ (must be init with compatible ECGroup).
+ */
 inline
-ECPoint<Cryptosystem>::~ECPoint ()
+ECPoint & ECPoint::operator= (const ECPoint &Q)
+{
+  return operator= (Q.P_);
+}
+
+/*
+ * Assumes Q can be copied into P_ (must be init with compatible ECGroup).
+ */
+inline
+ECPoint & ECPoint::operator= (ECPoint &&Q)
+{
+  P_ = Q.P_;
+  Q.P_ = NULL;
+  return *this;
+}
+
+/* */
+inline
+ECPoint::~ECPoint ()
 {
   EC_POINT_free (P_);
 }
 
 /* */
-template <typename Cryptosystem>
 inline
-ECPoint<Cryptosystem>::operator EC_POINT * () const
+ECPoint::operator ECPoint::RawSrcPtr  () const
 {
   return P_;
 }
 
 /******************************************************************************/
 /* */
-template <typename Cryptosystem>
 inline
-ECKey<Cryptosystem>::ECKey (const Cryptosystem &C)
-    : key_ (C.new_ec_key())
+ECKey::ECKey (const ECGroup &E) : key_ (EC_KEY_new())
 {
+  if (key_ == NULL)
+    throw std::runtime_error ("could not allocate EC_KEY in ECKey constructor");
+
+  int ret = EC_KEY_set_group (key_, E.ec_group_);
+  if (ret != 1)
+    throw std::runtime_error ("could not set group in ECKey constructor");
+
+  ret = EC_KEY_generate_key (key_);
+  if (ret != 1)
+    throw std::runtime_error ("could not generate key in ECKey constructor");
 }
 
 /* */
-template <typename Cryptosystem>
 inline
-ECKey<Cryptosystem>::~ECKey ()
+ECKey::ECKey (const ECKey &K) : key_ (EC_KEY_new())
+{
+  if (key_ == NULL)
+    throw std::runtime_error ("could not allocate EC_KEY in ECKey constructor");
+
+  operator= (K);
+}
+
+/* */
+inline
+ECKey::ECKey (ECKey &&K) : key_(K.key_)
+{
+  K.key_ = NULL;
+}
+
+/* */
+inline
+ECKey::~ECKey ()
 {
   EC_KEY_free (key_);
 }
 
 /* */
-template <typename Cryptosystem>
 inline
-ECKey<Cryptosystem>::operator const BIGNUM *() const
+ECKey & ECKey::operator= (const ECKey &K)
+{
+  EC_KEY *ret = EC_KEY_copy (key_, K.key_);
+  if (ret == NULL)
+    throw ("EC_KEY_copy failed in ECKey copy assignment method");
+  return *this;
+}
+
+/* */
+inline
+ECKey & ECKey::operator= (ECKey &&K)
+{
+  key_ = K.key_;
+  K.key_ = NULL;
+  return *this;
+}
+
+/* */
+inline
+BN::RawSrcPtr ECKey::get_value () const
 {
   return EC_KEY_get0_private_key (key_);
 }
 
 /* */
-template <typename Cryptosystem>
 inline
-const EC_POINT * ECKey<Cryptosystem>::get_ec_point () const
+ECPoint::RawSrcPtr ECKey::get_ec_point () const
 {
   return EC_KEY_get0_public_key (key_);
 }
@@ -315,6 +434,16 @@ ECGroup::ECGroup (SecLevel seclevel) : ctx_ (BN_CTX_new())
 
 /* */
 inline
+ECGroup::ECGroup (ECGroup &&G) : ec_group_ (G.ec_group_),
+                                 order_ (std::move(G.order_)),
+                                 ctx_ (G.ctx_)
+{
+  G.ec_group_ = NULL;
+  G.ctx_ = NULL;
+}
+
+/* */
+inline
 ECGroup::~ECGroup ()
 {
   EC_GROUP_free (ec_group_);
@@ -323,9 +452,14 @@ ECGroup::~ECGroup ()
 
 /* */
 inline
-const EC_POINT * ECGroup::gen () const
+ECGroup & ECGroup::operator= (ECGroup &&G)
 {
-  return EC_GROUP_get0_generator (ec_group_);
+  ec_group_ = G.ec_group_;
+  G.ec_group_ = NULL;
+  ctx_ = G.ctx_;
+  G.ctx_ = NULL;
+  order_ = std::move (G.order_);
+  return *this;
 }
 
 /* */
@@ -337,7 +471,28 @@ const Mpz & ECGroup::order () const
 
 /* */
 inline
-void ECGroup::get_coords_of_point (BN &x, BN &y, const EC_POINT *P) const
+ECPoint::RawSrcPtr ECGroup::gen () const
+{
+  return EC_GROUP_get0_generator (ec_group_);
+}
+
+/* */
+inline
+bool ECGroup::is_on_curve (ECPoint::RawSrcPtr P) const
+{
+  return EC_POINT_is_on_curve (ec_group_, P, ctx_);
+}
+
+/* */
+inline
+bool ECGroup::is_at_infinity (ECPoint::RawSrcPtr P) const
+{
+  return EC_POINT_is_at_infinity (ec_group_, P);
+}
+
+/* */
+inline
+void ECGroup::get_coords_of_point (BN &x, BN &y, ECPoint::RawSrcPtr P) const
 {
   int ret = EC_POINT_get_affine_coordinates (ec_group_, P, x.bn_, y.bn_, ctx_);
   if (ret != 1)
@@ -346,7 +501,7 @@ void ECGroup::get_coords_of_point (BN &x, BN &y, const EC_POINT *P) const
 
 /* */
 inline
-void ECGroup::get_x_coord_of_point (BN &x, const EC_POINT *P) const
+void ECGroup::get_x_coord_of_point (BN &x, ECPoint::RawSrcPtr P) const
 {
   int ret = EC_POINT_get_affine_coordinates (ec_group_, P, x.bn_, NULL, ctx_);
   if (ret != 1)
@@ -355,172 +510,109 @@ void ECGroup::get_x_coord_of_point (BN &x, const EC_POINT *P) const
 
 /* */
 inline
-bool ECGroup::ec_point_eq (const EC_POINT *P, const EC_POINT *Q) const
+bool ECGroup::ec_point_eq (ECPoint::RawSrcPtr P, ECPoint::RawSrcPtr Q) const
 {
   return EC_POINT_cmp (ec_group_, P, Q, ctx_) == 0;
 }
 
 /* */
 inline
-void ECGroup::ec_add (EC_POINT *R, const EC_POINT *P, const EC_POINT *Q) const
+void ECGroup::ec_add (ECPoint &R, ECPoint::RawSrcPtr P,
+                                  ECPoint::RawSrcPtr Q) const
 {
-  int ret = EC_POINT_add (ec_group_, R, P, Q, ctx_);
+  int ret = EC_POINT_add (ec_group_, R.P_, P, Q, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_add failed in add");
 }
 
 /* */
 inline
-void ECGroup::scal_mul_gen (EC_POINT *R, const BN &n) const
+void ECGroup::scal_mul_gen (ECPoint &R, BN::RawSrcPtr n) const
 {
-  int ret = EC_POINT_mul (ec_group_, R, n.bn_, NULL, NULL, ctx_);
+  int ret = EC_POINT_mul (ec_group_, R.P_, n, NULL, NULL, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_mul failed in scal_mul_gen");
 }
 
 /* */
 inline
-void ECGroup::scal_mul (EC_POINT *R, const BIGNUM *n, const EC_POINT *P) const
+void ECGroup::scal_mul (ECPoint &R, BN::RawSrcPtr n,
+                                    ECPoint::RawSrcPtr P) const
 {
-  int ret = EC_POINT_mul (ec_group_, R, NULL, P, n, ctx_);
+  int ret = EC_POINT_mul (ec_group_, R.P_, NULL, P, n, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_mul failed in scal_mul");
 }
 
 /* */
 inline
-void ECGroup::scal_mul (EC_POINT *R, const BN &n, const EC_POINT *P) const
+void ECGroup::scal_mul (ECPoint &R, BN::RawSrcPtr m, BN::RawSrcPtr n,
+                                                     ECPoint::RawSrcPtr P) const
 {
-  scal_mul (R, static_cast<const BIGNUM *>(n), P);
-}
-
-/* */
-inline
-void ECGroup::scal_mul (EC_POINT *R, const BN &m, const BN &n,
-                        const EC_POINT *P) const
-{
-  int ret = EC_POINT_mul (ec_group_, R, m.bn_, P, n.bn_, ctx_);
+  int ret = EC_POINT_mul (ec_group_, R.P_, m, P, n, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_mul failed in scal_mul");
 }
 
 /* We assume that the order is prime (which must be the case for NIST curves) */
 inline
-bool ECGroup::has_correct_order (const EC_POINT *G) const
+bool ECGroup::has_correct_order (ECPoint::RawSrcPtr G) const
 {
-  if (EC_POINT_is_at_infinity (ec_group_, G))
+  if (is_at_infinity (G))
     return false;
 
-  if (!EC_POINT_is_on_curve (ec_group_, G, ctx_))
+  if (!is_on_curve (G))
     return false;
 
-  EC_POINT *T = EC_POINT_new (ec_group_);
-  if (T == NULL)
-    throw std::runtime_error ("EC_POINT_new failed in has_correct_order");
+  ECPoint T (*this);
 
   scal_mul (T, EC_GROUP_get0_order (ec_group_), G);
-  bool is_gen = EC_POINT_is_at_infinity (ec_group_, T);
-  EC_POINT_free (T);
-  return is_gen;
+  return is_at_infinity (T.P_);
 }
 
 /* */
 inline
-EC_POINT * ECGroup::new_ec_point () const
+void ECGroup::mod_order (BN &r, BN::RawSrcPtr a) const
 {
-  EC_POINT *P = EC_POINT_new (ec_group_);
-  if (P == NULL)
-    throw ("EC_POINT_new failed in new_ec_point");
-  return P;
-
-}
-
-/* */
-inline
-EC_POINT * ECGroup::new_ec_point_copy (const EC_POINT *P) const
-{
-  EC_POINT *Q = EC_POINT_dup (P, ec_group_);
-  if (Q == NULL)
-    throw ("EC_POINT_dup failed in new_ec_point_copy");
-  return Q;
-}
-
-/* */
-inline
-EC_KEY * ECGroup::new_ec_key () const
-{
-  EC_KEY *key = EC_KEY_new();
-  if (key == NULL)
-    throw std::runtime_error ("could not allocate EC_KEY in new_ec_key");
-
-  int ret = EC_KEY_set_group (key, ec_group_);
-  if (ret != 1)
-    throw std::runtime_error ("could not set group in new_ec_key");
-
-  ret = EC_KEY_generate_key (key);
-  if (ret != 1)
-    throw std::runtime_error ("could not generate key in new_ec_key");
-
-  return key;
-}
-
-/* */
-inline
-void ECGroup::mod_order (BN &r, const BN &a) const
-{
-  int ret = BN_nnmod (r.bn_, a.bn_, EC_GROUP_get0_order (ec_group_), ctx_);
+  int ret = BN_nnmod (r.bn_, a, EC_GROUP_get0_order (ec_group_), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_nnmod failed");
 }
 
 /* */
 inline
-void ECGroup::add_mod_order (BN &r, const BN &a, const BIGNUM *b) const
+void ECGroup::add_mod_order (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b) const
 {
-  int ret = BN_mod_add (r.bn_, a.bn_, b, EC_GROUP_get0_order (ec_group_), ctx_);
+  int ret = BN_mod_add (r.bn_, a, b, EC_GROUP_get0_order (ec_group_), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_mod_add failed");
 }
 
 /* */
 inline
-void ECGroup::mul_mod_order (BN &r, const BN &a, const BN &b) const
+void ECGroup::mul_mod_order (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b) const
 {
-  mul_mod_order (r, a, static_cast<const BIGNUM *>(b));
-}
-
-/* */
-inline
-void ECGroup::mul_mod_order (BN &r, const BN &a, const BIGNUM *b) const
-{
-  int ret = BN_mod_mul (r.bn_, a.bn_, b, EC_GROUP_get0_order (ec_group_), ctx_);
+  int ret = BN_mod_mul (r.bn_, a, b, EC_GROUP_get0_order (ec_group_), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_mod_mul failed");
 }
 
 /* */
 inline
-void ECGroup::inverse_mod_order (BN &r, const BN &a) const
+void ECGroup::inverse_mod_order (BN &r, BN::RawSrcPtr a) const
 {
-  inverse_mod_order (r, static_cast<const BIGNUM *>(a));
-}
-
-/* */
-inline
-void ECGroup::inverse_mod_order (BN &r, const BIGNUM *a) const
-{
-  BIGNUM *ret = BN_mod_inverse (r.bn_, a, EC_GROUP_get0_order (ec_group_), ctx_);
+  const BIGNUM *ret = BN_mod_inverse (r.bn_, a, EC_GROUP_get0_order (ec_group_),
+                                                ctx_);
   if (ret == NULL)
     throw std::runtime_error ("could not inverse modulo order");
 }
 
 /* */
 inline
-bool ECGroup::is_positive_less_than_order (const BN &v) const
+bool ECGroup::is_positive_less_than_order (BN::RawSrcPtr v) const
 {
-  const BIGNUM *order = EC_GROUP_get0_order (ec_group_);
-  return !BN_is_negative (v.bn_) && !BN_is_zero (v.bn_)
-                                 && BN_cmp (v.bn_, order) < 0;
+  return !BN_is_negative (v) && !BN_is_zero (v)
+                             && BN_cmp (v, EC_GROUP_get0_order (ec_group_)) < 0;
 }
 
 #endif /* OPENSSL_WRAPPER_INL__ */

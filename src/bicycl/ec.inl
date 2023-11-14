@@ -46,7 +46,7 @@ ECDSA::PublicKey ECDSA::keygen (const SecretKey &sk) const
 inline
 void ECDSA::hash_message (OpenSSL::BN &h, const Message &m) const
 {
-  h = H_ (m);
+  h.from_bytes (H_ (m));
 }
 
 /* */
@@ -68,7 +68,7 @@ ECDSA::Signature::Signature (const ECDSA &C, const SecretKey &sk,
   do
   {
     SecretKey k (C);
-    if (BN_is_zero (k))
+    if (BN_is_zero(k.get_value()))
       continue;
 
     C.get_x_coord_of_point (tmp, k.get_ec_point());
@@ -76,13 +76,51 @@ ECDSA::Signature::Signature (const ECDSA &C, const SecretKey &sk,
     if (r_.is_zero())
       continue;
 
-    C.mul_mod_order (s_, r_, sk);
+    C.mul_mod_order (s_, r_, sk.get_value());
 
     OpenSSL::BN::add (s_, s_, z);
 
-    C.inverse_mod_order (tmp, k);
+    C.inverse_mod_order (tmp, k.get_value());
     C.mul_mod_order (s_, s_, tmp);
   } while (s_.is_zero());
+}
+
+/* */
+inline
+bool ECDSA::Signature::verify (const ECDSA &C, const PublicKey &Q,
+                                               const Message &m) const
+{
+  OpenSSL::BN z, sinv, u1, u2, x1, tmp;
+
+  if (!C.has_correct_order (Q)) /* check that Q as order n */
+    return false;
+
+  if (!C.is_positive_less_than_order (r_))
+    return false;
+
+  if (!C.is_positive_less_than_order (s_))
+    return false;
+
+  bool ok = true;
+  OpenSSL::ECPoint T (C);
+  C.hash_message (z, m);
+  C.inverse_mod_order (sinv, s_);
+  C.mul_mod_order (u1, sinv, z);
+  C.mul_mod_order (u2, sinv, r_);
+
+  C.scal_mul (T, u1, u2, Q); /* u1*G + u2*Q */
+
+  if (C.is_at_infinity (T))
+    ok = false;
+  else
+  {
+    C.get_x_coord_of_point (tmp, T);
+    C.mod_order (x1, tmp);
+
+    ok = (x1 == r_);
+  }
+
+  return ok;
 }
 
 /* */
@@ -90,37 +128,7 @@ inline
 bool ECDSA::verif (const Signature &signature, const PublicKey &Q,
                                                const Message &m) const
 {
-  OpenSSL::BN z, sinv, u1, u2, x1, tmp;
-
-  if (!has_correct_order (Q)) /* check that Q as order n */
-    return false;
-
-  if (!is_positive_less_than_order (signature.r_))
-    return false;
-
-  if (!is_positive_less_than_order (signature.s_))
-    return false;
-
-  bool ok = true;
-  OpenSSL::ECPoint<ECDSA> T (*this);
-  hash_message (z, m);
-  inverse_mod_order (sinv, signature.s_);
-  mul_mod_order (u1, sinv, z);
-  mul_mod_order (u2, sinv, signature.r_);
-
-  scal_mul (T, u1, u2, Q); /* u1*G + u2*Q */
-
-  if (EC_POINT_is_at_infinity (ec_group_, T))
-    ok = false;
-  else
-  {
-    get_x_coord_of_point (tmp, T);
-    mod_order (x1, tmp);
-
-    ok = (x1 == signature.r_);
-  }
-
-  return ok;
+  return signature.verify (*this, Q, m);
 }
 
 /* random message of random length between 4 and UCHAR_MAX */
@@ -151,15 +159,15 @@ ECNIZK::PublicValue ECNIZK::public_value_from_secret (const SecretValue &s) cons
 
 /* */
 inline
-void ECNIZK::hash_for_challenge (OpenSSL::BN &c, const EC_POINT *R,
-                                                 const EC_POINT *Q) const
+void ECNIZK::hash_for_challenge (OpenSSL::BN &c, OpenSSL::ECPoint::RawSrcPtr R,
+                                                 OpenSSL::ECPoint::RawSrcPtr Q) const
 {
   OpenSSL::BN xG, yG, xR, yR, xQ, yQ;
   get_coords_of_point (xG, yG, gen());
   get_coords_of_point (xR, yR, R);
   get_coords_of_point (xQ, yQ, Q);
 
-  c = H_ (xG, yG, xR, yR, xQ, yQ);
+  c.from_bytes (H_ (xG, yG, xR, yR, xQ, yQ));
 }
 
 /* */
@@ -177,16 +185,16 @@ ECNIZK::Proof::Proof (const ECNIZK &C, const SecretValue &s) : R_(C)
   R_ = r.get_ec_point();
   OpenSSL::BN tmp;
 
-  C.hash_for_challenge (c_, R_, s.get_ec_point ());
+  C.hash_for_challenge (c_, R_, s.get_ec_point());
 
-  C.mul_mod_order (tmp, c_, s);
-  C.add_mod_order (z_, tmp, r); /* z = r + c*s */
+  C.mul_mod_order (tmp, c_, s.get_value());
+  C.add_mod_order (z_, tmp, r.get_value()); /* z = r + c*s */
 }
 
 /* */
 inline
-bool ECNIZK::noninteractive_verify (const PublicValue &Q,
-                                    const Proof &proof) const
+bool ECNIZK::noninteractive_verify (const Proof &proof,
+                                    const PublicValue &Q) const
 {
   return proof.verify (*this, Q);
 }
@@ -198,8 +206,8 @@ bool ECNIZK::Proof::verify (const ECNIZK &C, const PublicValue &Q) const
   OpenSSL::BN c;
   C.hash_for_challenge (c, R_, Q);
 
-  OpenSSL::ECPoint<ECNIZK> lhs (C);
-  OpenSSL::ECPoint<ECNIZK> rhs (C);
+  OpenSSL::ECPoint lhs (C);
+  OpenSSL::ECPoint rhs (C);
 
   C.scal_mul_gen (lhs, z_); /* z*G */
 
