@@ -22,12 +22,14 @@
 #define SECLEVEL_INL__
 
 /* */
+inline
 const std::vector<SecLevel> SecLevel::All ()
 {
   return { _112, _128, _192, _256 };
 }
 
 /* */
+inline
 SecLevel::SecLevel (unsigned int s)
 {
   switch(s)
@@ -41,6 +43,7 @@ SecLevel::SecLevel (unsigned int s)
 }
 
 /* */
+inline
 SecLevel::SecLevel (const std::string &s)
 {
   if (s == "112")       value_ = _112;
@@ -51,6 +54,7 @@ SecLevel::SecLevel (const std::string &s)
 }
 
 /* */
+inline
 size_t SecLevel::RSA_modulus_bitsize () const
 {
   if (value_ == _112)        return 2048;
@@ -61,6 +65,7 @@ size_t SecLevel::RSA_modulus_bitsize () const
 }
 
 /* */
+inline
 size_t SecLevel::discriminant_bitsize () const
 {
   if (value_ == _112)        return 1348;
@@ -71,6 +76,7 @@ size_t SecLevel::discriminant_bitsize () const
 }
 
 /* */
+inline
 int SecLevel::elliptic_curve_openssl_nid () const
 {
   if (value_ == _112)        return OpenSSL::ECGroup::P224;
@@ -81,6 +87,7 @@ int SecLevel::elliptic_curve_openssl_nid () const
 }
 
 /* */
+inline
 int SecLevel::sha3_openssl_nid () const
 {
   if (value_ == _112)        return OpenSSL::HashAlgo::SHA3_224;
@@ -91,12 +98,14 @@ int SecLevel::sha3_openssl_nid () const
 }
 
 /* */
+inline
 std::ostream & operator<< (std::ostream &o, SecLevel seclevel)
 {
   return o << static_cast<unsigned int>(seclevel.value_);
 }
 
 /* */
+inline
 std::string to_string (SecLevel seclevel)
 {
   return std::to_string (static_cast<unsigned int>(seclevel.value_));
