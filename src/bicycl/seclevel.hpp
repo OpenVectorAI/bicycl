@@ -26,16 +26,18 @@
 #include <string>
 #include <vector>
 
-#include <openssl/obj_mac.h>
-
 namespace BICYCL
 {
+  /*****/
   class InvalidSecLevelException : public std::invalid_argument
   {
     public:
-      InvalidSecLevelException() : std::invalid_argument("not a valid SecLevel") { }
+      InvalidSecLevelException() : std::invalid_argument("not a valid SecLevel")
+      {
+      }
   };
 
+  /*****/
   class SecLevel
   {
     public:
@@ -47,33 +49,12 @@ namespace BICYCL
         _256 = 256,
       };
 
-      static const std::vector<SecLevel> All ()
-      {
-        return { _112, _128, _192, _256 };
-      }
+      static const std::vector<SecLevel> All ();
 
       SecLevel() = delete;
       constexpr SecLevel (Value seclevel) : value_(seclevel) { }
-      SecLevel (unsigned int s)
-      {
-        switch(s)
-        {
-          case 112 : value_ = _112; break;
-          case 128 : value_ = _128; break;
-          case 192 : value_ = _192; break;
-          case 256 : value_ = _256; break;
-          default  : throw InvalidSecLevelException() ; break;
-        }
-      }
-
-      SecLevel (const std::string &s)
-      {
-        if (s == "112")       value_ = _112;
-        else if (s == "128")  value_ = _128;
-        else if (s == "192")  value_ = _192;
-        else if (s == "256")  value_ = _256;
-        else                  throw InvalidSecLevelException();
-      }
+      SecLevel (unsigned int s);
+      SecLevel (const std::string &s);
 
       /* Allow switch, comparisons and usage as key std::map */
       constexpr operator Value() const { return value_; }
@@ -82,50 +63,14 @@ namespace BICYCL
       explicit operator bool() = delete;
 
       /* */
-      size_t RSA_modulus_bitsize () const
-      {
-        if (value_ == _112)        return 2048;
-        else if (value_ == _128)   return 3072;
-        else if (value_ == _192)   return 7680;
-        else if (value_ == _256)   return 15360;
-        else                       throw InvalidSecLevelException();
-      }
+      size_t RSA_modulus_bitsize () const;
+      size_t discriminant_bitsize () const;
+      int elliptic_curve_openssl_nid () const;
+      int sha3_openssl_nid () const;
 
       /* */
-      size_t discriminant_bitsize () const
-      {
-        if (value_ == _112)        return 1348;
-        else if (value_ == _128)   return 1827;
-        else if (value_ == _192)   return 3598;
-        else if (value_ == _256)   return 5971;
-        else                       throw InvalidSecLevelException();
-      }
-
-      /* */
-      int elliptic_curve_openssl_nid () const
-      {
-        if (value_ == _112)        return NID_secp224r1;
-        else if (value_ == _128)   return NID_X9_62_prime256v1;
-        else if (value_ == _192)   return NID_secp384r1;
-        else if (value_ == _256)   return NID_secp521r1;
-        else                       throw InvalidSecLevelException();
-      }
-
-      /* */
-      int sha3_openssl_nid () const
-      {
-        if (value_ == _112)        return NID_sha3_224;
-        else if (value_ == _128)   return NID_sha3_256;
-        else if (value_ == _192)   return NID_sha3_384;
-        else if (value_ == _256)   return NID_sha3_512;
-        else                       throw InvalidSecLevelException();
-      }
-
-      /* */
-      friend std::ostream & operator< (std::ostream &o, SecLevel seclevel)
-      {
-        return o << static_cast<unsigned int>(seclevel.value_);
-      }
+      friend std::ostream & operator<< (std::ostream &o, SecLevel seclevel);
+      friend std::string to_string (SecLevel seclevel);
 
     protected:
       Value value_;

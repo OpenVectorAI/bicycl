@@ -1,6 +1,7 @@
 set (BICYCL_MAIN_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/bicycl.hpp)
 set (BICYCL_INSTALLABLE_HEADERS_AND_INL
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/seclevel.hpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/seclevel.inl
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/gmp_extras.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/gmp_extras.inl
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/openssl_wrapper.hpp

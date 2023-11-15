@@ -47,6 +47,10 @@ namespace BICYCL
         using Digest = std::vector<unsigned char>;
 
         static const int SHAKE128 = NID_shake128;
+        static const int SHA3_224 = NID_sha3_224;
+        static const int SHA3_256 = NID_sha3_256;
+        static const int SHA3_384 = NID_sha3_384;
+        static const int SHA3_512 = NID_sha3_512;
 
         /* constructors */
         HashAlgo (SecLevel seclevel); /* Use SHA3 with desired security level */
@@ -185,6 +189,11 @@ namespace BICYCL
       friend ECKey::ECKey (const ECGroup &);
 
       public:
+        static const int P224 = NID_secp224r1;
+        static const int P256 = NID_X9_62_prime256v1;
+        static const int P384 = NID_secp384r1;
+        static const int P521 = NID_secp521r1;
+
         /* constructors */
         ECGroup (SecLevel seclevel);
         ECGroup (const ECGroup &G) = delete;

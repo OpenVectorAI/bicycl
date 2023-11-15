@@ -160,7 +160,7 @@ ECNIZK::PublicValue ECNIZK::public_value_from_secret (const SecretValue &s) cons
 /* */
 inline
 void ECNIZK::hash_for_challenge (OpenSSL::BN &c, OpenSSL::ECPoint::RawSrcPtr R,
-                                                 OpenSSL::ECPoint::RawSrcPtr Q) const
+                                 OpenSSL::ECPoint::RawSrcPtr Q) const
 {
   OpenSSL::BN xG, yG, xR, yR, xQ, yQ;
   get_coords_of_point (xG, yG, gen());

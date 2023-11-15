@@ -35,4 +35,9 @@
 #include "bicycl/Paillier.hpp"
 #include "bicycl/Joye_Libert.hpp"
 
+namespace BICYCL
+{
+  #include "bicycl/seclevel.inl"
+} /* namespace BICYCL */
+
 #endif /* BICYCL_HPP__ */
