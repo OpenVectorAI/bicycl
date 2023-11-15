@@ -846,6 +846,13 @@ void Mpz::divexact (Mpz &r, const Mpz &op1, const Mpz &op2)
 
 /* */
 inline
+void Mpz::divexact (Mpz &r, const Mpz &op1, unsigned long op2)
+{
+  mpz_divexact_ui (r.mpz_, op1.mpz_, op2);
+}
+
+/* */
+inline
 void Mpz::cdiv_qr (Mpz &q, Mpz &r, const Mpz &n, const Mpz &d)
 {
   mpz_cdiv_qr (q.mpz_, r.mpz_, n.mpz_, d.mpz_);

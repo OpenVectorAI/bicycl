@@ -186,6 +186,7 @@ namespace BICYCL
       static void divby2 (Mpz &, const Mpz &);
       static void divby4 (Mpz &, const Mpz &);
       static void divexact (Mpz &, const Mpz &, const Mpz &);
+      static void divexact (Mpz &, const Mpz &, unsigned long);
       static void cdiv_qr (Mpz &, Mpz &, const Mpz &, const Mpz &);
       static void fdiv_qr (Mpz &, Mpz &, const Mpz &, const Mpz &);
 
