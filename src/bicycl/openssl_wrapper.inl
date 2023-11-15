@@ -289,7 +289,7 @@ ECPoint::ECPoint (const ECGroup &E) : P_(NULL)
 {
   P_ = EC_POINT_new (E.ec_group_);
   if (P_ == NULL)
-    throw ("EC_POINT_new failed in ECPoint constructor");
+    throw std::runtime_error ("EC_POINT_new failed in ECPoint constructor");
 }
 
 /* */
@@ -298,7 +298,7 @@ ECPoint::ECPoint (const ECGroup &E, ECPoint::RawSrcPtr Q) : P_(NULL)
 {
   P_ = EC_POINT_dup (Q, E.ec_group_);
   if (P_ == NULL)
-    throw ("EC_POINT_dup failed in ECPoint constructor");
+    throw std::runtime_error ("EC_POINT_dup failed in ECPoint constructor");
 }
 
 /* */
@@ -316,7 +316,7 @@ ECPoint & ECPoint::operator= (ECPoint::RawSrcPtr Q)
 {
   int ret = EC_POINT_copy (P_, Q);
   if (ret != 1)
-    throw ("EC_POINT_copy failed in ECPoint::operator=");
+    throw std::runtime_error ("EC_POINT_copy failed in ECPoint::operator=");
   return *this;
 }
 
@@ -401,7 +401,7 @@ ECKey & ECKey::operator= (const ECKey &K)
 {
   EC_KEY *ret = EC_KEY_copy (key_, K.key_);
   if (ret == NULL)
-    throw ("EC_KEY_copy failed in ECKey copy assignment method");
+    throw std::runtime_error ("EC_KEY_copy failed in ECKey copy assignment");
   return *this;
 }
 
