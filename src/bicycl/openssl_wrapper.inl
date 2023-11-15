@@ -270,6 +270,18 @@ void HashAlgo::hash_update (const OpenSSL::BN &v)
   hash_update (bin);
 }
 
+/* */
+inline
+std::ostream & operator<< (std::ostream &o, const BN &v)
+{
+  char *buf = BN_bn2dec (v);
+  if (buf == NULL)
+    throw std::runtime_error ("BN_bn2dec failed in operator<<");
+  o << buf;
+  OPENSSL_free (buf);
+  return o;
+}
+
 /****************************************************************************/
 /* */
 inline

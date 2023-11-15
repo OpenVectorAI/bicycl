@@ -21,6 +21,7 @@
 #ifndef OPENSSL_WRAPPER_HPP__
 #define OPENSSL_WRAPPER_HPP__
 
+#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -119,6 +120,9 @@ namespace BICYCL
         operator BN::RawSrcPtr () const;
         void to_bytes (std::vector<unsigned char> &dst) const;
         void from_bytes (const std::vector<unsigned char> &src);
+
+        /* */
+        friend std::ostream & operator<< (std::ostream &o, const BN &v);
 
       private:
         BIGNUM *bn_;
