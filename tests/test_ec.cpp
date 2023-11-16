@@ -46,7 +46,7 @@ test_ECNIZK (SecLevel seclevel, size_t niter)
 
     ECNIZK::Proof proof = zk.noninteractive_proof (s);
 
-    ret &= zk.noninteractive_verify (Q, proof);
+    ret &= zk.noninteractive_verify (proof, Q);
   }
 
   Test::result_line (pre.str(), ret);
