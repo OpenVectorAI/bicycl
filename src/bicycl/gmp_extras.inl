@@ -790,6 +790,14 @@ void Mpz::mulby2k (Mpz &r, const Mpz &op, mp_bitcnt_t k)
 
 /* */
 inline
+void Mpz::mulby2k (Mpz &r, unsigned long op, mp_bitcnt_t k)
+{
+  r = op;
+  mulby2k (r, r, k);
+}
+
+/* */
+inline
 void Mpz::mulby2 (Mpz &r, const Mpz &op)
 {
   mulby2k (r, op, 1); /* maybe an add is faster ?? */

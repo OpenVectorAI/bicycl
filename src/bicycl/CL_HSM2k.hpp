@@ -72,8 +72,9 @@ namespace BICYCL
        */
       QFI h_;
 
-      Mpz exponent_bound_; /* actual bound use to draw random values (it is
-                            * a multiple of class_number_bound).
+      Mpz fud_factor_; /* folded uniform distribution factor */
+      Mpz exponent_bound_; /* actual bound use to draw random values; is equal
+                            * to fud_factor_ times Cl_Delta_.class_number_bound_
                             */
 
       /** Precomputation data: a positive integer */
@@ -104,14 +105,14 @@ namespace BICYCL
       /**
        * Setup of the cryptosystem given @p N and @p k.
        */
-      CL_HSM2k (const Mpz &N, size_t k, const Mpz &bound_extra,
+      CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor,
                 bool compact_variant);
       /**
        * Same as above, using default value `false` for @p compact_variant.
        */
-      CL_HSM2k (const Mpz &N, size_t k, const Mpz &bound_extra);
+      CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor);
       /**
-       * Same as above, using default value for @p bound_extra.
+       * Same as above, using default value for @p fud_factor.
        */
       CL_HSM2k (const Mpz &N, size_t k, bool compact_variant);
       /**

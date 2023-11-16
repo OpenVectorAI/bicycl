@@ -26,20 +26,21 @@
  *
  * \param[in] q the prime q
  * \param[in] p the prime p or 1
- * \param[in] bound_extra positive integer to use as multiplier for the class
+ * \param[in] fud_factor positive integer to use as multiplier for the class
  * number bound
  * \param[in] compact_variant whether the compact variant is used
  *
  */
 inline
 CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
-                                  const Mpz &bound_extra, bool compact_variant)
+                                  const Mpz &fud_factor, bool compact_variant)
     : q_(q),
       k_(k),
       p_(p),
       Cl_DeltaK_ (compute_DeltaK (q, p)),
       Cl_Delta_ (compute_Delta (Cl_DeltaK_.discriminant(), q, k_)),
-      compact_variant_ (compact_variant)
+      compact_variant_ (compact_variant),
+      fud_factor_ (fud_factor)
 {
   /* Checks */
   if (q_.sgn() <= 0 || not q_.is_prime())
@@ -93,14 +94,17 @@ CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
   }
 
   /*
-   * Compute the exponent_bound as class_number_bound times bound_extra.
-   * If bound_extra is <= 0, the default it to use 2^40.
+   * Compute the exponent_bound as class_number_bound times fud_factor.
+   * If fud_factor is <= 0, the default it to use 2^40.
    */
   exponent_bound_ = Cl_DeltaK_.class_number_bound();
-  if (bound_extra.sgn () <= 0)
+  if (fud_factor_.sgn () <= 0)
+  {
     Mpz::mulby2k (exponent_bound_, exponent_bound_, 40);
+    Mpz::mulby2k (fud_factor_, 1UL, 40);
+  }
   else
-    Mpz::mul (exponent_bound_, exponent_bound_, bound_extra);
+    Mpz::mul (exponent_bound_, exponent_bound_, fud_factor_);
 
   /*
    * Precomputation
@@ -122,8 +126,8 @@ CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
  */
 inline
 CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
-                                            const Mpz &bound_extra)
-  : CL_HSMqk (q, k, p, bound_extra, false)
+                                            const Mpz &fud_factor)
+  : CL_HSMqk (q, k, p, fud_factor, false)
 {
 }
 
@@ -925,9 +929,6 @@ CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
       h_d_precomp_ = h_de_precomp_;
     Cl_G().nudupl (h_de_precomp_, h_de_precomp_);
   }
-
-  /* Compute bound_extra_ from exponent_bound_ and bound on #Cl(DeltaK) */
-  Mpz::divexact (bound_extra_, exponent_bound_, Cl_DeltaK_.class_number_bound());
 }
 
 /* */
@@ -973,7 +974,7 @@ CL_HSMqk_ZKAoK::Proof::Proof (const CL_HSMqk_ZKAoK &C, const PublicKey &pk,
 {
   Mpz B (C.exponent_bound_);
   Mpz::mulby2k (B, B, C.C_exp2_);
-  Mpz::mul (B, B, C.bound_extra_);
+  Mpz::mul (B, B, C.fud_factor_);
 
   Mpz r1 (randgen.random_mpz (B));
   Mpz r2 (randgen.random_mpz (C.M_));
@@ -1010,7 +1011,7 @@ bool CL_HSMqk_ZKAoK::Proof::verify (const CL_HSMqk_ZKAoK &C,
   ret &= C.genus (c.c2()) == CL_HSMqk::Genus ({ 1, 1 });
 
   /* Check u1 bound */
-  Mpz B (C.bound_extra_);
+  Mpz B (C.fud_factor_);
   Mpz::add (B, B, 1UL);
   Mpz::mulby2k (B, B, C.C_exp2_);
   Mpz::mul (B, B, C.exponent_bound_);

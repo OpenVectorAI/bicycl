@@ -77,9 +77,10 @@ namespace BICYCL
        */
       QFI h_;
 
-      Mpz exponent_bound_; /* actual bound use to draw random values (it is
-                               * a multiple of class_number_bound).
-                               */
+      Mpz fud_factor_; /* folded uniform distribution factor */
+      Mpz exponent_bound_; /* actual bound use to draw random values; is equal
+                            * to fud_factor_ times Cl_Delta_.class_number_bound_
+                            */
       /** Precomputation data: a positive integer */
       size_t d_;
       size_t e_;
@@ -110,14 +111,14 @@ namespace BICYCL
       /**
        * Setup of the cryptosystem given @p q and @p p.
        */
-      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, const Mpz &bound_extra,
+      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, const Mpz &fud_factor,
            bool compact_variant);
       /**
        * Same as above, using default value `false` for @p compact_variant.
        */
-      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, const Mpz &bound_extra);
+      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, const Mpz &fud_factor);
       /**
-       * Same as above, using default value for @p bound_extra.
+       * Same as above, using default value for @p fud_factor.
        */
       CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, bool compact_variant);
       /**
@@ -274,7 +275,6 @@ namespace BICYCL
   {
     protected:
       size_t C_exp2_; /* Use 2^C_exp2_ as the bound in the ZK proof */
-      Mpz bound_extra_;
       mutable OpenSSL::HashAlgo H_;
 
     public:

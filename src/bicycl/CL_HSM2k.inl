@@ -24,19 +24,20 @@
 /**
  * \param[in] q the prime q
  * \param[in] p the prime p or 1
- * \param[in] bound_extra positive integer to use as multiplier for the class
+ * \param[in] fud_factor positive integer to use as multiplier for the class
  * number bound
  * \param[in] compact_variant ""
  *
  */
 inline
-CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &bound_extra,
+CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor,
                     bool compact_variant)
   : N_(N),
     k_(k),
     Cl_DeltaK_ (compute_DeltaK (N)),
     Cl_Delta_ (compute_Delta (Cl_DeltaK_.discriminant(), k)),
-    compact_variant_ (compact_variant)
+    compact_variant_ (compact_variant),
+    fud_factor_ (fud_factor)
 {
   /* Checks */
   if (N_.sgn() <= 0)
@@ -80,14 +81,17 @@ CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &bound_extra,
   }
 
   /*
-   * Compute the exponent_bound as class_number_bound times bound_extra.
-   * If bound_extra is <= 0, the default it to use 2^40.
+   * Compute the exponent_bound as class_number_bound times fud_factor.
+   * If fud_factor is <= 0, the default it to use 2^40.
    */
   exponent_bound_ = Cl_DeltaK_.class_number_bound();
-  if (bound_extra.sgn () <= 0)
+  if (fud_factor.sgn () <= 0)
+  {
     Mpz::mulby2k (exponent_bound_, exponent_bound_, 40);
+    Mpz::mulby2k (fud_factor_, 1UL, 40);
+  }
   else
-    Mpz::mul (exponent_bound_, exponent_bound_, bound_extra);
+    Mpz::mul (exponent_bound_, exponent_bound_, fud_factor);
 
   /*
    * Precomputation
@@ -108,8 +112,8 @@ CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &bound_extra,
 /**
  */
 inline
-CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &bound_extra)
-  : CL_HSM2k (N, k, bound_extra, false)
+CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor)
+  : CL_HSM2k (N, k, fud_factor, false)
 {
 }
 

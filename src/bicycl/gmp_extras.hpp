@@ -176,6 +176,7 @@ namespace BICYCL
       static void mul (Mpz &, const Mpz &, const Mpz &);
       static void mul (Mpz &, const Mpz &, unsigned long);
       static void mulby2k (Mpz &, const Mpz &, mp_bitcnt_t k);
+      static void mulby2k (Mpz &, unsigned long, mp_bitcnt_t k);
       static void mulby2 (Mpz &, const Mpz &);
       static void mulby4 (Mpz &, const Mpz &);
 
