@@ -20,6 +20,8 @@ set (BICYCL_INSTALLABLE_HEADERS_AND_INL
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/Paillier.inl
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/Joye_Libert.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/Joye_Libert.inl
+                      ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/threshold_ECDSA.hpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/bicycl/threshold_ECDSA.inl
                       )
 add_library (bicycl INTERFACE)
 target_sources (bicycl INTERFACE ${BICYCL_MAIN_HEADER}

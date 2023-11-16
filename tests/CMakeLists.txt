@@ -14,6 +14,7 @@ set (TESTS_LIST test_gmp_extras
                 test_Paillier
                 test_Joye_Libert
                 test_ec
+                test_threshold_ECDSA
                 )
 
 ### Automatically create target and test from TESTS_LIST

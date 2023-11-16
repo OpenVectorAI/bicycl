@@ -18,27 +18,45 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef BICYCL_HPP__
-#define BICYCL_HPP__
+#ifndef THRESHOLD_ECDSA_HPP__
+#define THRESHOLD_ECDSA_HPP__
 
-#ifndef BICYCL_GMP_PRIMALITY_TESTS_ITERATION
-#define BICYCL_GMP_PRIMALITY_TESTS_ITERATION 30
-#endif
+#include <tuple>
 
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/openssl_wrapper.hpp"
-#include "bicycl/qfi.hpp"
-#include "bicycl/seclevel.hpp"
 #include "bicycl/ec.hpp"
 #include "bicycl/CL_HSMqk.hpp"
-#include "bicycl/CL_HSM2k.hpp"
-#include "bicycl/Paillier.hpp"
-#include "bicycl/Joye_Libert.hpp"
-#include "bicycl/threshold_ECDSA.hpp"
 
 namespace BICYCL
 {
-  #include "bicycl/seclevel.inl"
-} /* namespace BICYCL */
+  /****/
+  class thresholdECDSA
+  {
+    public:
+      using Commitment = OpenSSL::HashAlgo::Digest;
+      using Bytes = std::vector<unsigned char>;
 
-#endif /* BICYCL_HPP__ */
+      /* constructors */
+      thresholdECDSA (SecLevel seclevel, RandGen &randgen);
+
+      /* getters */
+      const OpenSSL::ECGroup & get_ec_group () const;
+
+      /* utils */
+      std::tuple<Commitment, Bytes> commit (OpenSSL::ECPoint::RawSrcPtr Q) const;
+      bool open (const Commitment &c, OpenSSL::ECPoint::RawSrcPtr Q,
+                                      const Bytes &r) const;
+
+    private:
+      const SecLevel seclevel_;
+      const OpenSSL::ECGroup ec_group_;
+      const CL_HSMqk CL_HSMq_;
+      mutable OpenSSL::HashAlgo H_;
+  };
+
+  #include "threshold_ECDSA.inl"
+
+} /* BICYCL namespace */
+
+#endif /* THRESHOLD_ECDSA_HPP__ */
