@@ -90,7 +90,7 @@ test_CL_HSMqk_ZKAoK (const CL_HSMqk &C, OpenSSL::HashAlgo &H, RandGen &randgen,
   {
     CL_HSMqk::ClearText a (C, randgen);
     Mpz r (randgen.random_mpz (C.encrypt_randomness_bound()));
-    CL_HSMqk::CipherText c = C.encrypt (pk, a, r);
+    CL_HSMqk::CipherText c (C.encrypt (pk, a, r));
     CL_HSMqk_ZKAoKProof proof (C, H, pk, c, a, r, randgen);
     ret &= proof.verify (C, H, pk, c);
   }

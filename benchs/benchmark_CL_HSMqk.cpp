@@ -142,39 +142,40 @@ void CL_HSMqk_benchs_encrypt (const Cryptosystem &C, RandGen &randgen,
 }
 
 /* */
-void CL_HSMqk_ZKAoK_benchs (const CL_HSMqk &cryptosystem, RandGen &randgen,
-                            const string &pre)
+void CL_HSMqk_ZKAoK_benchs (const CL_HSMqk &cryptosystem, OpenSSL::HashAlgo &H,
+                            RandGen &randgen, const string &pre)
 {
   const size_t niter = 100;
 
-  CL_HSMqk_ZKAoK zk (cryptosystem, randgen);
+  CL_HSMqk::SecretKey sk = cryptosystem.keygen (randgen);
+  CL_HSMqk::PublicKey pk = cryptosystem.keygen (sk);
 
-  CL_HSMqk_ZKAoK::SecretKey sk = zk.keygen (randgen);
-  CL_HSMqk_ZKAoK::PublicKey pk = zk.keygen (sk);
+  CL_HSMqk::ClearText a (cryptosystem, randgen);
+  Mpz r (randgen.random_mpz (cryptosystem.encrypt_randomness_bound()));
+  CL_HSMqk::CipherText c (cryptosystem.encrypt (pk, a, r));
+  CL_HSMqk_ZKAoKProof p (cryptosystem, H, pk, c, a, r, randgen);
 
-  CL_HSMqk_ZKAoK::ClearText a (cryptosystem, randgen);
-  Mpz r (randgen.random_mpz (zk.encrypt_randomness_bound()));
-  CL_HSMqk_ZKAoK::CipherText c = zk.encrypt (pk, a, r);
-  CL_HSMqk_ZKAoK::Proof p = zk.noninteractive_proof (pk, c, a, r, randgen);
-
-  auto proof = [&zk, &pk, &c, &a, &r, &randgen] ()
+  auto proof = [&cryptosystem, &H, &pk, &c, &a, &r, &randgen] ()
   {
-    zk.noninteractive_proof (pk, c, a, r, randgen);
+    CL_HSMqk_ZKAoKProof p (cryptosystem, H, pk, c, a, r, randgen);
   };
   Bench::one_function<ms, ms> (proof, niter, "ZKAoK proof", pre);
 
-  auto verify = [&zk, &pk, &c, &p] () { zk.noninteractive_verify (pk, c, p); };
+  auto verify = [&p, &cryptosystem, &H, &pk, &c] ()
+  {
+    p.verify (cryptosystem, H, pk, c);
+  };
   Bench::one_function<ms, ms> (verify, niter, "ZKAoK verify", pre);
 }
 
 /* */
 template <class Cryptosystem>
-void CL_HSMqk_benchs_all (const Cryptosystem &C, RandGen &randgen,
-                          const string &pre)
+void CL_HSMqk_benchs_all (const Cryptosystem &C, OpenSSL::HashAlgo &H,
+                          RandGen &randgen, const string &pre)
 {
   CL_HSMqk_benchs_ops (C, randgen, pre);
   CL_HSMqk_benchs_encrypt (C, randgen, pre);
-  CL_HSMqk_ZKAoK_benchs (C, randgen, pre);
+  CL_HSMqk_ZKAoK_benchs (C, H, randgen, pre);
 }
 
 /* */
@@ -191,6 +192,7 @@ main (int argc, char *argv[])
   {
     /* With a random q twice as big as the security level */
     std::stringstream desc;
+    OpenSSL::HashAlgo H (seclevel);
     CL_HSMqk C (2*seclevel, 1, seclevel, randgen, false);
     desc << "  " << seclevel << " bits     |   " << C.q().nbits() << "   |";
 
@@ -204,12 +206,12 @@ main (int argc, char *argv[])
     Bench::one_function<ms, ms> (setup, 10, "setup", pre);
 
     /* */
-    CL_HSMqk_benchs_all (C, randgen, pre);
+    CL_HSMqk_benchs_all (C, H, randgen, pre);
     std::cout << std::endl;
 
     /* */
     CL_HSMqk Ccompact (C.q(), C.k(), C.p(), true);
-    CL_HSMqk_benchs_all (Ccompact, randgen, desc.str() + " compact");
+    CL_HSMqk_benchs_all (Ccompact, H, randgen, desc.str() + " compact");
     std::cout << std::endl;
   }
 
