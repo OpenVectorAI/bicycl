@@ -78,23 +78,21 @@ bool CL_HSMqk_check_setup (const CL_HSMqk &C, const string & pre)
 
 /* */
 bool
-test_CL_HSMqk_ZKAoK (const CL_HSMqk &C, RandGen &randgen, size_t niter,
-                     const string & pre)
+test_CL_HSMqk_ZKAoK (const CL_HSMqk &C, OpenSSL::HashAlgo &H, RandGen &randgen,
+                     size_t niter, const string & pre)
 {
   bool ret = true;
 
-  CL_HSMqk_ZKAoK zk (C, randgen);
-
-  CL_HSMqk_ZKAoK::SecretKey sk = zk.keygen (randgen);
-  CL_HSMqk_ZKAoK::PublicKey pk = zk.keygen (sk);
+  CL_HSMqk::SecretKey sk = C.keygen (randgen);
+  CL_HSMqk::PublicKey pk = C.keygen (sk);
 
   for (size_t i = 0; i < niter; i++)
   {
-    CL_HSMqk_ZKAoK::ClearText a (C, randgen);
-    Mpz r (randgen.random_mpz (zk.encrypt_randomness_bound()));
-    CL_HSMqk_ZKAoK::CipherText c = zk.encrypt (pk, a, r);
-    CL_HSMqk_ZKAoK::Proof proof = zk.noninteractive_proof (pk, c, a, r, randgen);
-    ret &= zk.noninteractive_verify (pk, c, proof);
+    CL_HSMqk::ClearText a (C, randgen);
+    Mpz r (randgen.random_mpz (C.encrypt_randomness_bound()));
+    CL_HSMqk::CipherText c = C.encrypt (pk, a, r);
+    CL_HSMqk_ZKAoKProof proof (C, H, pk, c, a, r, randgen);
+    ret &= proof.verify (C, H, pk, c);
   }
 
   Test::result_line (pre + " ZKAoK", ret);
@@ -102,37 +100,37 @@ test_CL_HSMqk_ZKAoK (const CL_HSMqk &C, RandGen &randgen, size_t niter,
 }
 
 /* */
-bool CL_HSMqk_check_all (const CL_HSMqk &C, RandGen &randgen, size_t niter,
-                         const string &name)
+bool CL_HSMqk_check_all (const CL_HSMqk &C, OpenSSL::HashAlgo &H,
+                         RandGen &randgen, size_t niter, const string &name)
 {
   bool success = true;
   std::cout << std::endl;
   success &= CL_HSMqk_check_setup (C, name);
   success &= Test::test_encryption (C, randgen, niter, name);
   success &= Test::test_ciphertext_ops (C, randgen, niter, name);
-  success &= test_CL_HSMqk_ZKAoK (C, randgen, niter, name);
+  success &= test_CL_HSMqk_ZKAoK (C, H, randgen, niter, name);
   return success;
 }
 
 /* */
-bool check (const CL_HSMqk &C, RandGen &randgen, size_t niter,
-            const string &name)
+bool check (const CL_HSMqk &C, OpenSSL::HashAlgo &H, RandGen &randgen,
+            size_t niter, const string &name)
 {
   bool success = true;
   size_t DeltaK_nbits = C.DeltaK().nbits();
 
-  success &= CL_HSMqk_check_all (C, randgen, niter, generate_desc (C, name));
+  success &= CL_HSMqk_check_all (C, H, randgen, niter, generate_desc (C, name));
 
   CL_HSMqk Ccompact (C, true);
-  success &= CL_HSMqk_check_all (Ccompact, randgen, niter,
+  success &= CL_HSMqk_check_all (Ccompact, H, randgen, niter,
                                                 generate_desc (Ccompact, name));
 
   CL_HSMqk Clarge ((DeltaK_nbits+C.k()-1)/C.k(), C.k(), DeltaK_nbits, randgen);
-  success &= CL_HSMqk_check_all (Clarge, randgen, niter,
+  success &= CL_HSMqk_check_all (Clarge, H, randgen, niter,
                                                   generate_desc (Clarge, name));
 
   CL_HSMqk Clargecompact (Clarge, true);
-  success &= CL_HSMqk_check_all (Clargecompact, randgen, niter,
+  success &= CL_HSMqk_check_all (Clargecompact, H, randgen, niter,
                                           generate_desc (Clargecompact, name));
 
   return success;
@@ -143,17 +141,19 @@ bool check (RandGen &randgen, size_t q_nbits, size_t k, size_t Delta_OK_nbits,
             size_t niter, const string &name)
 {
   CL_HSMqk C (q_nbits, k, Delta_OK_nbits, randgen, false);
-  return check (C, randgen, niter, name);
+  SecLevel seclevel = SecLevel::_112; /* for hashalgo, use smallest seclevel */
+  OpenSSL::HashAlgo H (seclevel);
+  return check (C, H, randgen, niter, name);
 }
 
 /* */
 bool check (RandGen &randgen, SecLevel seclevel, size_t k, size_t niter)
 {
-  std::stringstream desc;
-  desc << " " << seclevel << " ";
+  std::string desc = std::string (" ") + std::to_string (seclevel) + " ";
   /* With a random q as big as the security level */
   CL_HSMqk C (seclevel, k, seclevel, randgen, false);
-  return check (C, randgen, niter, desc.str());
+  OpenSSL::HashAlgo H (seclevel);
+  return check (C, H, randgen, niter, desc);
 }
 
 /******************************************************************************/

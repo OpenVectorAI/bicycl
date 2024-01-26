@@ -24,20 +24,19 @@
 /**
  * \param[in] q the prime q
  * \param[in] p the prime p or 1
- * \param[in] fud_factor positive integer to use as multiplier for the class
- * number bound
+ * \param[in] distance positive integer
  * \param[in] compact_variant ""
  *
  */
 inline
-CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor,
+CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, unsigned int distance,
                     bool compact_variant)
   : N_(N),
     k_(k),
     Cl_DeltaK_ (compute_DeltaK (N)),
     Cl_Delta_ (compute_Delta (Cl_DeltaK_.discriminant(), k)),
     compact_variant_ (compact_variant),
-    fud_factor_ (fud_factor)
+    distance_ (distance)
 {
   /* Checks */
   if (N_.sgn() <= 0)
@@ -80,18 +79,12 @@ CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor,
     raise_to_power_M (Cl_DeltaK_, h_);
   }
 
-  /*
-   * Compute the exponent_bound as class_number_bound times fud_factor.
-   * If fud_factor is <= 0, the default it to use 2^40.
+  /* Compute the exponent_bound as class_number_bound times 2^(distance-2).
+   * If distance is < 2, the default it to use distance = 42.
    */
   exponent_bound_ = Cl_DeltaK_.class_number_bound();
-  if (fud_factor.sgn () <= 0)
-  {
-    Mpz::mulby2k (exponent_bound_, exponent_bound_, 40);
-    Mpz::mulby2k (fud_factor_, 1UL, 40);
-  }
-  else
-    Mpz::mul (exponent_bound_, exponent_bound_, fud_factor);
+  distance_ = distance_ < 2 ? 42 : distance_;
+  Mpz::mulby2k (exponent_bound_, exponent_bound_, distance_-2);
 
   /*
    * Precomputation
@@ -112,8 +105,8 @@ CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor,
 /**
  */
 inline
-CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor)
-  : CL_HSM2k (N, k, fud_factor, false)
+CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, unsigned int distance)
+  : CL_HSM2k (N, k, distance, false)
 {
 }
 
@@ -121,7 +114,7 @@ CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor)
  */
 inline
 CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, bool compact_variant)
-  : CL_HSM2k (N, k, Mpz(0UL), compact_variant)
+  : CL_HSM2k (N, k, 0U, compact_variant)
 {
 }
 
@@ -129,7 +122,7 @@ CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k, bool compact_variant)
  */
 inline
 CL_HSM2k::CL_HSM2k (const Mpz &N, size_t k)
-  : CL_HSM2k (N, k, Mpz(0UL))
+  : CL_HSM2k (N, k, 0U)
 {
 }
 
@@ -309,6 +302,13 @@ inline
 const Mpz & CL_HSM2k::encrypt_randomness_bound () const
 {
   return exponent_bound_;
+}
+
+/* */
+inline
+unsigned int CL_HSM2k::lambda_distance () const
+{
+  return distance_;
 }
 
 /**

@@ -37,16 +37,17 @@ test_ECNIZK (SecLevel seclevel, size_t niter)
 
   bool ret = true;
 
+  OpenSSL::ECGroup E (seclevel);
+  OpenSSL::HashAlgo H (seclevel);
+
   for (size_t i = 0; i < niter; i++)
   {
-    ECNIZK zk (seclevel);
+    ECNIZKProof::SecretValue s (E.random_mod_order());
+    ECNIZKProof::PublicValue Q (E, s);
 
-    ECNIZK::SecretValue s (zk);
-    ECNIZK::PublicValue Q = zk.public_value_from_secret (s);
+    ECNIZKProof proof (E, H, s, Q);
 
-    ECNIZK::Proof proof = zk.noninteractive_proof (s);
-
-    ret &= zk.noninteractive_verify (proof, Q);
+    ret &= proof.verify (E, H, Q);
   }
 
   Test::result_line (pre.str(), ret);

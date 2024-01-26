@@ -53,8 +53,8 @@ namespace BICYCL
 
       SecLevel() = delete;
       constexpr SecLevel (Value seclevel) : value_(seclevel) { }
-      SecLevel (unsigned int s);
-      SecLevel (const std::string &s);
+      explicit SecLevel (unsigned int s);
+      explicit SecLevel (const std::string &s);
 
       /* Allow switch, comparisons and usage as key std::map */
       constexpr operator Value() const { return value_; }
@@ -65,6 +65,7 @@ namespace BICYCL
       /* */
       size_t RSA_modulus_bitsize () const;
       size_t discriminant_bitsize () const;
+      unsigned int soundness () const;
       int elliptic_curve_openssl_nid () const;
       int sha3_openssl_nid () const;
 

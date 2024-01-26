@@ -28,8 +28,6 @@
 #include <algorithm>
 #include <vector>
 
-#include <openssl/bn.h>
-
 namespace BICYCL
 {
   namespace _gmp_impl
@@ -92,8 +90,7 @@ namespace BICYCL
       explicit Mpz (long);
       explicit Mpz (const std::string &);
       explicit Mpz (mpf_srcptr);
-      explicit Mpz (const BIGNUM *);
-      Mpz (const std::vector<unsigned char> &, size_t);
+      explicit Mpz (const std::vector<unsigned char> &);
 
       /* destructor */
       ~Mpz ();
@@ -105,7 +102,7 @@ namespace BICYCL
       Mpz & operator= (long);
       Mpz & operator= (const std::string &);
       Mpz & operator= (mpf_srcptr); /* only needed once in ClassGroup */
-      Mpz & operator= (const BIGNUM *);
+      Mpz & operator= (const std::vector<unsigned char> &);
 
       /* comparison */
       bool operator== (const Mpz &) const;
@@ -248,7 +245,7 @@ namespace BICYCL
     public:
       RandGen ();
       RandGen (const RandGen &);
-      RandGen (const Mpz &);
+      explicit RandGen (const Mpz &);
       ~RandGen ();
 
       void set_seed (const Mpz &);
@@ -257,6 +254,7 @@ namespace BICYCL
       Mpz random_mpz_2exp (mp_bitcnt_t);
 
       unsigned char random_uchar ();
+      std::vector<unsigned char> random_bytes (size_t);
       unsigned long random_ui (unsigned long);
       unsigned long random_ui_2exp (mp_bitcnt_t);
 

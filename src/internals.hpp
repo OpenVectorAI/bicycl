@@ -221,10 +221,9 @@ namespace BICYCL
           }
 
         public:
-          WithRandGen (RandGen &randgen) : m_ ({ .seed = NULL, .bytes = &bytes,
-                                                 .cleanup = NULL, .add = NULL,
-                                                 .pseudorand = NULL,
-                                                 .status = &status})
+          explicit WithRandGen (RandGen &randgen)
+            : m_ ({ .seed = NULL, .bytes = &bytes, .cleanup = NULL, .add = NULL,
+                    .pseudorand = NULL, .status = &status})
           {
             randgen_ = &randgen;
             int ret = RAND_set_rand_method (&m_);

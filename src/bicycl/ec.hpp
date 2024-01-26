@@ -21,6 +21,9 @@
 #ifndef EC_HPP__
 #define EC_HPP__
 
+#include <functional>
+#include <tuple>
+
 #include "bicycl/seclevel.hpp"
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/openssl_wrapper.hpp"
@@ -31,9 +34,22 @@ namespace BICYCL
   class ECDSA : public OpenSSL::ECGroup
   {
     public:
-      using SecretKey = OpenSSL::ECKey;
       using PublicKey = OpenSSL::ECPoint;
       using Message = std::vector<unsigned char>;
+
+      /*** SecretKey ***/
+      class SecretKey
+      {
+        public:
+          explicit SecretKey (const ECDSA &C);
+
+          const OpenSSL::BN & d () const;
+          const OpenSSL::ECPoint & Q () const;
+
+        private:
+          OpenSSL::BN d_;
+          OpenSSL::ECPoint Q_;
+      };
 
       /*** Signature ***/
       class Signature
@@ -50,7 +66,7 @@ namespace BICYCL
       };
 
       /* constructors */
-      ECDSA (SecLevel seclevel);
+      explicit ECDSA (SecLevel seclevel);
 
       /* crypto protocol */
       SecretKey keygen () const;
@@ -60,53 +76,77 @@ namespace BICYCL
                                       const Message &m) const;
 
       /* utils */
-      Message random_message () const;
+      static Message random_message ();
 
     protected:
-      void hash_message (OpenSSL::BN &h, const Message &m) const;
+      OpenSSL::BN hash_message (const Message &m) const;
 
     private:
       mutable OpenSSL::HashAlgo H_;
   }; /* ECDSA */
 
   /*****/
-  class ECNIZK : public OpenSSL::ECGroup
+  class ECNIZKProof
   {
     public:
-      using SecretValue = OpenSSL::ECKey;
+      using SecretValue = OpenSSL::BN;
       using PublicValue = OpenSSL::ECPoint;
 
-      class Proof
-      {
-        public:
-          Proof (const ECNIZK &C, const SecretValue &s);
+      ECNIZKProof (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
+                   const SecretValue &s, const PublicValue &Q);
+      ECNIZKProof (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
+                   const SecretValue &s);
+      ECNIZKProof (const OpenSSL::ECGroup &E, const ECNIZKProof &p);
 
-          bool verify (const ECNIZK &C, const PublicValue &Q) const;
-
-        private:
-          OpenSSL::ECPoint R_;
-          OpenSSL::BN c_;
-          OpenSSL::BN z_;
-      };
-
-      /* constructors */
-      ECNIZK (SecLevel seclevel);
-
-      PublicValue public_value_from_secret (const SecretValue &s) const;
-
-      /* crypto protocol */
-      Proof noninteractive_proof (const SecretValue &s) const;
-      bool noninteractive_verify (const Proof &proof,
-                                  const PublicValue &Q) const;
+      bool verify (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
+                   const PublicValue &Q) const;
 
     protected:
-      /* utils */
-      void hash_for_challenge (OpenSSL::BN &c, OpenSSL::ECPoint::RawSrcPtr R,
-                                          OpenSSL::ECPoint::RawSrcPtr Q) const;
+      static OpenSSL::BN hash_for_challenge (OpenSSL::HashAlgo &H,
+                                             const OpenSSL::ECGroup &E,
+                                             const OpenSSL::ECPoint &R,
+                                             const OpenSSL::ECPoint &Q);
+      static OpenSSL::ECPoint compute_Q_from_secret (const OpenSSL::ECGroup &E,
+                                                     const SecretValue &s);
 
     private:
-      mutable OpenSSL::HashAlgo H_;
-  }; /* ECNIZK */
+      OpenSSL::ECPoint R_;
+      OpenSSL::BN c_;
+      OpenSSL::BN z_;
+  }; /* ECNIZKProof */
+
+  /*****/
+  class ECNIZKAoK
+  {
+    public:
+      using SecretValue = OpenSSL::BN;
+      using PublicValue = OpenSSL::ECPoint;
+
+      ECNIZKAoK (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
+                 const OpenSSL::ECPoint &R, const SecretValue &x,
+                 const SecretValue &y, const SecretValue &rho,
+                 const PublicValue &V, const PublicValue &A);
+      ECNIZKAoK (const OpenSSL::ECGroup &E, const ECNIZKAoK &p);
+
+      bool verify (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
+                   const OpenSSL::ECPoint &R, const PublicValue &V,
+                   const PublicValue &A) const;
+
+    protected:
+      static OpenSSL::BN hash_for_challenge (OpenSSL::HashAlgo &Hash,
+                                             const OpenSSL::ECGroup &E,
+                                             const OpenSSL::ECPoint &R,
+                                             const OpenSSL::ECPoint &V,
+                                             const OpenSSL::ECPoint &A,
+                                             const OpenSSL::ECPoint &H);
+
+    private:
+      OpenSSL::ECPoint H_;
+      OpenSSL::BN c_;
+      OpenSSL::BN t1_;
+      OpenSSL::BN t2_;
+  }; /* ECNIZKAoK */
+
 
   #include "ec.inl"
 

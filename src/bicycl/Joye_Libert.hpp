@@ -71,7 +71,7 @@ namespace BICYCL
 
         public:
           /* constructors */
-          PublicKey (const SecretKey &);
+          explicit PublicKey (const SecretKey &);
 
           /* getters */
           const Mpz & N() const;

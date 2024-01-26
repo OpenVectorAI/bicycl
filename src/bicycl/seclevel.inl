@@ -77,6 +77,13 @@ size_t SecLevel::discriminant_bitsize () const
 
 /* */
 inline
+unsigned int SecLevel::soundness () const
+{
+  return static_cast<unsigned int>(value_);
+}
+
+/* */
+inline
 int SecLevel::elliptic_curve_openssl_nid () const
 {
   if (value_ == _112)        return OpenSSL::ECGroup::P224;

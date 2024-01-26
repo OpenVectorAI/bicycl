@@ -72,10 +72,17 @@ namespace BICYCL
        */
       QFI h_;
 
-      Mpz fud_factor_; /* folded uniform distribution factor */
-      Mpz exponent_bound_; /* actual bound use to draw random values; is equal
-                            * to fud_factor_ times Cl_Delta_.class_number_bound_
-                            */
+      /** The distance parameter used to produced a almost uniform distribution.
+       * Given a bound on the class number of \f$ \ClDeltaK \f$, this bound is
+       * multiplied by 2^(distance_-2) to produced a random distribution that
+       * is at distance 2^(distance_) of being uniform.
+       */
+      unsigned int distance_;
+
+      /** Actual bound use to draw random values
+       * It is equal to 2^(distance_-2) times Cl_Delta_.class_number_bound_
+       */
+      Mpz exponent_bound_;
 
       /** Precomputation data: a positive integer */
       size_t d_;
@@ -105,14 +112,14 @@ namespace BICYCL
       /**
        * Setup of the cryptosystem given @p N and @p k.
        */
-      CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor,
+      CL_HSM2k (const Mpz &N, size_t k, unsigned int distance,
                 bool compact_variant);
       /**
        * Same as above, using default value `false` for @p compact_variant.
        */
-      CL_HSM2k (const Mpz &N, size_t k, const Mpz &fud_factor);
+      CL_HSM2k (const Mpz &N, size_t k, unsigned int distance);
       /**
-       * Same as above, using default value for @p fud_factor.
+       * Same as above, using default value for @p distance.
        */
       CL_HSM2k (const Mpz &N, size_t k, bool compact_variant);
       /**
@@ -178,6 +185,8 @@ namespace BICYCL
       const Mpz & cleartext_bound () const;
       /** Return the bound for random exponents: same as #secretkey_bound */
       const Mpz & encrypt_randomness_bound () const;
+      /** Return the distance */
+      unsigned int lambda_distance () const;
       /**@}*/
 
       /**

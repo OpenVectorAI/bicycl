@@ -293,21 +293,9 @@ Mpz::Mpz (mpf_srcptr v) : Mpz()
 
 /* */
 inline
-Mpz::Mpz (const std::vector<unsigned char> &data, size_t nb_bits) : Mpz()
+Mpz::Mpz (const std::vector<unsigned char> &data) : Mpz()
 {
-  /* the binary data is interpreted most significant bit first */
-  mpz_import (mpz_, data.size(), 1, 1, 0, 0, data.data());
-  if (nb_bits > data.size() * CHAR_BIT)
-    throw std::runtime_error ("not enough data to read the number of bits");
-  else
-    divby2k (*this, *this, data.size() * CHAR_BIT - nb_bits);
-}
-
-/* */
-inline
-Mpz::Mpz (const BIGNUM *v) : Mpz()
-{
-  *this = v;
+  *this = data;
 }
 
 /* */
@@ -370,26 +358,10 @@ Mpz & Mpz::operator= (const std::string &s)
 
 /* */
 inline
-Mpz & Mpz::operator= (const BIGNUM *bn)
+Mpz & Mpz::operator= (const std::vector<unsigned char> &data)
 {
-  int nbytes = BN_num_bytes (bn);
-  if (nbytes > 0)
-  {
-    unsigned char *tmp = (unsigned char *) OPENSSL_malloc (nbytes);
-    if (tmp == NULL)
-      throw std::runtime_error ("could not allocate temporary buffer");
-
-    BN_bn2lebinpad (bn, tmp, nbytes);
-    mpz_import (mpz_, nbytes, -1, 1, 0, 0, tmp);
-
-    if (BN_is_negative (bn))
-      neg();
-
-    OPENSSL_free (tmp);
-  }
-  else
-    *this = 0UL;
-
+  /* the binary data is interpreted most significant bit first */
+  mpz_import (mpz_, data.size(), 1, 1, 0, 0, data.data());
   return *this;
 }
 
@@ -1522,6 +1494,16 @@ inline
 unsigned char RandGen::random_uchar ()
 {
   return gmp_urandomb_ui (rand_, CHAR_BIT);
+}
+
+/* */
+inline
+std::vector<unsigned char> RandGen::random_bytes (size_t n)
+{
+  std::vector<unsigned char> r(n);
+  for (size_t i = 0; i < n; i++)
+    r[i] = random_uchar();
+  return r;
 }
 
 /* */

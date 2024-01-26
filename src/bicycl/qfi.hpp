@@ -169,7 +169,7 @@ namespace BICYCL
       mutable Mpz class_number_bound_;
 
     public:
-      ClassGroup (const Mpz &discriminant);
+      explicit ClassGroup (const Mpz &discriminant);
 
       /* getters */
       const Mpz & discriminant () const;

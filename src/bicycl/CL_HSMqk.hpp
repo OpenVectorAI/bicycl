@@ -77,10 +77,18 @@ namespace BICYCL
        */
       QFI h_;
 
-      Mpz fud_factor_; /* folded uniform distribution factor */
-      Mpz exponent_bound_; /* actual bound use to draw random values; is equal
-                            * to fud_factor_ times Cl_Delta_.class_number_bound_
-                            */
+      /** The distance parameter used to produced a almost uniform distribution.
+       * Given a bound on the class number of \f$ \ClDeltaK \f$, this bound is
+       * multiplied by 2^(distance_-2) to produced a random distribution that
+       * is at distance 2^(distance_) of being uniform.
+       */
+      unsigned int distance_;
+
+      /** Actual bound use to draw random values
+       * It is equal to 2^(distance_-2) times Cl_Delta_.class_number_bound_
+       */
+      Mpz exponent_bound_;
+
       /** Precomputation data: a positive integer */
       size_t d_;
       size_t e_;
@@ -111,14 +119,14 @@ namespace BICYCL
       /**
        * Setup of the cryptosystem given @p q and @p p.
        */
-      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, const Mpz &fud_factor,
+      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, unsigned int distance,
            bool compact_variant);
       /**
        * Same as above, using default value `false` for @p compact_variant.
        */
-      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, const Mpz &fud_factor);
+      CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, unsigned int distance);
       /**
-       * Same as above, using default value for @p fud_factor.
+       * Same as above, using default value for @p distance.
        */
       CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, bool compact_variant);
       /**
@@ -202,6 +210,8 @@ namespace BICYCL
       const Mpz & cleartext_bound () const;
       /** Return the bound for random exponents: same as #secretkey_bound */
       const Mpz & encrypt_randomness_bound () const;
+      /** Return the distance */
+      unsigned int lambda_distance () const;
       /**@}*/
 
       /**
@@ -271,57 +281,29 @@ namespace BICYCL
       size_t F_kerphi_div (Mpz &, const Mpz &, size_t, const Mpz &) const;
   };
 
-  class CL_HSMqk_ZKAoK : protected CL_HSMqk
+  /****/
+  class CL_HSMqk_ZKAoKProof
   {
-    protected:
-      size_t C_exp2_; /* Use 2^C_exp2_ as the bound in the ZK proof */
-      mutable OpenSSL::HashAlgo H_;
-
     public:
-      using CL_HSMqk::SecretKey;
-      using CL_HSMqk::PublicKey;
-      using CL_HSMqk::ClearText;
-      using CL_HSMqk::CipherText;
-      using CL_HSMqk::keygen;
-      using CL_HSMqk::encrypt;
-      using CL_HSMqk::encrypt_randomness_bound;
+      CL_HSMqk_ZKAoKProof (const CL_HSMqk &C, OpenSSL::HashAlgo &H,
+                           const CL_HSMqk::PublicKey &pk,
+                           const CL_HSMqk::CipherText &c,
+                           const CL_HSMqk::ClearText &a,
+                           const Mpz &r, RandGen &randgen);
 
-      /* ctor */
-      CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
-                                                    const Mpz &t);
-      CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
-                                                    RandGen &randgen);
-      CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, RandGen &randgen);
+      bool verify (const CL_HSMqk &C, OpenSSL::HashAlgo &H,
+                   const CL_HSMqk::PublicKey &pk,
+                   const CL_HSMqk::CipherText &c) const;
 
-      class Proof
-      {
-        protected:
-          Mpz u1_;
-          Mpz u2_;
-          Mpz k_;
+    private:
+      Mpz k_from_hash (OpenSSL::HashAlgo &H, const CL_HSMqk::PublicKey &pk,
+                       const CL_HSMqk::CipherText &c,
+                       const QFI &t1, const QFI &t2) const;
 
-        public:
-          Proof (const CL_HSMqk_ZKAoK &C, const PublicKey &pk,
-                 const CipherText &c, const ClearText &a, const Mpz &r,
-                 RandGen &randgen);
-
-          bool verify (const CL_HSMqk_ZKAoK &, const PublicKey &pk,
-                       const CipherText &) const;
-
-        protected:
-          Mpz k_from_hash (const CL_HSMqk_ZKAoK &C, const PublicKey &pk,
-                           const CipherText &c, const QFI &t1,
-                           const QFI &t2) const;
-      };
-
-      /* */
-      Proof noninteractive_proof (const PublicKey &pk, const CipherText &c,
-                                  const ClearText &a, const Mpz &r,
-                                  RandGen &randgen) const;
-      bool noninteractive_verify (const PublicKey &pk, const CipherText &c,
-                                  const Proof &proof) const;
+      Mpz u1_;
+      Mpz u2_;
+      Mpz k_;
   };
-
 
   #include "CL_HSMqk.inl"
 

@@ -19,6 +19,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <cstring>
+#include <sstream>
+#include <vector>
 
 #include "bicycl.hpp"
 #include "internals.hpp"
@@ -224,32 +226,53 @@ test_assignment_from_bignum (RandGen &randgen)
 {
   bool ret = true;
 
-  Mpz v;
+  Mpz mpz;
 
-  BIGNUM *bn = BN_new();
-  if (bn == NULL)
-    throw std::runtime_error ("could not allocate OpenSSL BIGNUM");
+  OpenSSL::BN bn;
 
   for (int n = 10; n < 500; n+=3)
   {
     for (int i = 0; i < 25; i++)
     {
-      BN_pseudo_rand (bn, n, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
+      OpenSSL::random_BN_2exp (bn, n);
       if (randgen.random_bool ())
-        BN_set_negative (bn, 1);
+        bn.neg();
 
-      v = bn;
-      char *bn_str = BN_bn2dec (bn);
-      char *v_str = mpz_get_str (NULL, 10, static_cast<mpz_srcptr> (v));
+      mpz = static_cast<Mpz>(bn);
 
-      ret &= strcmp (bn_str, v_str) == 0;
+      std::stringstream bn_str, mpz_str;
+      bn_str << bn;
+      mpz_str << mpz;
 
-      OPENSSL_free (bn_str);
-      free (v_str);
+      ret &= bn_str.str() == mpz_str.str();
     }
   }
+  return ret;
+}
 
-  BN_free (bn);
+bool
+test_constructor_from_bytes (RandGen &randgen)
+{
+  bool ret = true;
+
+  std::vector<unsigned char> bytes;
+
+  for (int n = 10; n < 500; n+=3)
+  {
+    for (int i = 0; i < 25; i++)
+    {
+      bytes = randgen.random_bytes (n);
+
+      Mpz mpz (bytes);
+      OpenSSL::BN bn (bytes);
+
+      std::stringstream bn_str, mpz_str;
+      bn_str << bn;
+      mpz_str << mpz;
+
+      ret &= bn_str.str() == mpz_str.str();
+    }
+  }
 
   return ret;
 }
@@ -321,6 +344,7 @@ main (int argc, char *argv[])
   RUN_TEST_AND_PRINT_RESULT_LINE (test_mpz_partial_euclid_scratch, randgen);
   RUN_TEST_AND_PRINT_RESULT_LINE (test_JSF, randgen);
   RUN_TEST_AND_PRINT_RESULT_LINE (test_assignment_from_bignum, randgen);
+  RUN_TEST_AND_PRINT_RESULT_LINE (test_constructor_from_bytes, randgen);
   RUN_TEST_AND_PRINT_RESULT_LINE (test_pow_mod_with_precomp, randgen);
 
   return success ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -26,21 +26,20 @@
  *
  * \param[in] q the prime q
  * \param[in] p the prime p or 1
- * \param[in] fud_factor positive integer to use as multiplier for the class
- * number bound
+ * \param[in] distance positive integer
  * \param[in] compact_variant whether the compact variant is used
  *
  */
 inline
 CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
-                                  const Mpz &fud_factor, bool compact_variant)
+                                  unsigned int distance, bool compact_variant)
     : q_(q),
       k_(k),
       p_(p),
       Cl_DeltaK_ (compute_DeltaK (q, p)),
       Cl_Delta_ (compute_Delta (Cl_DeltaK_.discriminant(), q, k_)),
       compact_variant_ (compact_variant),
-      fud_factor_ (fud_factor)
+      distance_ (distance)
 {
   /* Checks */
   if (q_.sgn() <= 0 || not q_.is_prime())
@@ -93,18 +92,12 @@ CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
     raise_to_power_M (Cl_DeltaK_, h_);
   }
 
-  /*
-   * Compute the exponent_bound as class_number_bound times fud_factor.
-   * If fud_factor is <= 0, the default it to use 2^40.
+  /* Compute the exponent_bound as class_number_bound times 2^(distance-2).
+   * If distance is < 2, the default it to use distance = 42.
    */
   exponent_bound_ = Cl_DeltaK_.class_number_bound();
-  if (fud_factor_.sgn () <= 0)
-  {
-    Mpz::mulby2k (exponent_bound_, exponent_bound_, 40);
-    Mpz::mulby2k (fud_factor_, 1UL, 40);
-  }
-  else
-    Mpz::mul (exponent_bound_, exponent_bound_, fud_factor_);
+  distance_ = distance_ < 2 ? 42 : distance_;
+  Mpz::mulby2k (exponent_bound_, exponent_bound_, distance_-2);
 
   /*
    * Precomputation
@@ -126,8 +119,8 @@ CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
  */
 inline
 CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
-                                            const Mpz &fud_factor)
-  : CL_HSMqk (q, k, p, fud_factor, false)
+                                            unsigned int distance)
+  : CL_HSMqk (q, k, p, distance, false)
 {
 }
 
@@ -135,7 +128,7 @@ CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p,
  */
 inline
 CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, bool compact_variant)
-  : CL_HSMqk (q, k, p, Mpz(0UL), compact_variant)
+  : CL_HSMqk (q, k, p, 0U, compact_variant)
 {
 }
 
@@ -143,7 +136,7 @@ CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p, bool compact_variant)
  */
 inline
 CL_HSMqk::CL_HSMqk (const Mpz &q, size_t k, const Mpz &p)
-  : CL_HSMqk (q, k, p, Mpz(0UL))
+  : CL_HSMqk (q, k, p, 0U)
 {
 }
 
@@ -360,6 +353,13 @@ inline
 const Mpz & CL_HSMqk::encrypt_randomness_bound () const
 {
   return exponent_bound_;
+}
+
+/* */
+inline
+unsigned int CL_HSMqk::lambda_distance () const
+{
+  return distance_;
 }
 
 /**
@@ -893,110 +893,85 @@ CL_HSMqk::Genus CL_HSMqk::genus (const QFI &f) const
 }
 
 /* */
-template <>
-void OpenSSL::HashAlgo::hash_update (const CL_HSMqk::PublicKey &pk)
+inline
+OpenSSL::HashAlgo & operator<< (OpenSSL::HashAlgo &H,
+                                const CL_HSMqk::PublicKey &k)
 {
-  hash_update (pk.elt());
+  return H << k.elt();
 }
 
 /* */
-template <>
-void OpenSSL::HashAlgo::hash_update (const CL_HSMqk::CipherText &c)
+inline
+OpenSSL::HashAlgo & operator<< (OpenSSL::HashAlgo &H,
+                                const CL_HSMqk::CipherText &c)
 {
-  hash_update (c.c1());
-  hash_update (c.c2());
+  return H << c.c1() << c.c2();
 }
 
 /******************************************************************************/
 /* */
-inline
-CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
-                                                              const Mpz &t)
-  : CL_HSMqk (cryptosystem), C_exp2_ (C_exp2), H_ (OpenSSL::HashAlgo::SHAKE128)
-{
-  if (C_exp2_ >= M_.nbits())
-    throw std::runtime_error ("the bound C=2^C_exp2 must be smaller than q^k");
-
-  /* Set h_ to h_^t */
-  Cl_G().nupow (h_, h_, t);
-  /* Precomputation data must be computed again */
-  h_de_precomp_ = h_;
-  for (size_t i = 0; i < d_+e_; i++)
-  {
-    if (i == e_)
-      h_e_precomp_ = h_de_precomp_;
-    if (i == d_)
-      h_d_precomp_ = h_de_precomp_;
-    Cl_G().nudupl (h_de_precomp_, h_de_precomp_);
-  }
-}
-
-/* */
-inline
-CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
-                                                              RandGen &randgen)
-  : CL_HSMqk_ZKAoK (cryptosystem, C_exp2, randgen.random_mpz (cryptosystem.secretkey_bound()))
-{
-}
+//inline
+//CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
+//                                                              const Mpz &t)
+//  : CL_HSMqk (cryptosystem), C_exp2_ (C_exp2), H_ (OpenSSL::HashAlgo::SHAKE128)
+//{
+//}
+//
+///* */
+//inline
+//CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, size_t C_exp2,
+//                                                              RandGen &randgen)
+//  : CL_HSMqk_ZKAoK (cryptosystem, C_exp2, randgen.random_mpz (cryptosystem.secretkey_bound()))
+//{
+//}
+//
+///* */
+//inline
+//CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, RandGen &randgen)
+//  : CL_HSMqk_ZKAoK (cryptosystem, std::min (cryptosystem.q().nbits()-1, 128UL), randgen)
+//{
+//}
 
 /* */
 inline
-CL_HSMqk_ZKAoK::CL_HSMqk_ZKAoK (const CL_HSMqk &cryptosystem, RandGen &randgen)
-  : CL_HSMqk_ZKAoK (cryptosystem, std::min (cryptosystem.q().nbits()-1, 128UL), randgen)
+CL_HSMqk_ZKAoKProof::CL_HSMqk_ZKAoKProof (const CL_HSMqk &C,
+                                          OpenSSL::HashAlgo &H,
+                                          const CL_HSMqk::PublicKey &pk,
+                                          const CL_HSMqk::CipherText &c,
+                                          const CL_HSMqk::ClearText &a,
+                                          const Mpz &r, RandGen &randgen)
 {
-}
+  int soundness = H.digest_nbits();
 
-/* */
-inline
-CL_HSMqk_ZKAoK::Proof CL_HSMqk_ZKAoK::noninteractive_proof (const PublicKey &pk,
-                                                            const CipherText &c,
-                                                            const ClearText &a,
-                                                            const Mpz &r,
-                                                            RandGen &randgen)
-                                                            const
-{
-  return Proof (*this, pk, c, a, r, randgen);
-}
-
-/* */
-inline
-bool CL_HSMqk_ZKAoK::noninteractive_verify (const PublicKey &pk,
-                                            const CipherText &c,
-                                            const Proof &proof) const
-{
-  return proof.verify (*this, pk, c);
-}
-
-/* */
-CL_HSMqk_ZKAoK::Proof::Proof (const CL_HSMqk_ZKAoK &C, const PublicKey &pk,
-                              const CipherText &c, const ClearText &a,
-                              const Mpz &r, RandGen &randgen)
-{
-  Mpz B (C.exponent_bound_);
-  Mpz::mulby2k (B, B, C.C_exp2_);
-  Mpz::mul (B, B, C.fud_factor_);
+  Mpz B (C.encrypt_randomness_bound());
+  Mpz::mulby2k (B, B, soundness);
+  Mpz::mulby2k (B, B, C.lambda_distance());
 
   Mpz r1 (randgen.random_mpz (B));
-  Mpz r2 (randgen.random_mpz (C.M_));
-  CipherText t (C.encrypt (pk, ClearText (C, r2), r1));
+  Mpz r2 (randgen.random_mpz (C.M()));
+  CL_HSMqk::CipherText t (C, pk, CL_HSMqk::ClearText (C, r2), r1);
 
-  /* Generate k using hash function */
-  k_ = k_from_hash (C, pk, c, t.c1(), t.c2());
+  k_ = k_from_hash (H, pk, c, t.c1(), t.c2());
+  // TODO hash all public params: t1, t2, pk, c + h, f, q, Delta, soundness
+  // TODO use variable length digest of size C
+
 
   Mpz::mul (u1_, k_, r);
   Mpz::add (u1_, u1_, r1);
 
   Mpz::mul (u2_, k_, a);
   Mpz::add (u2_, u2_, r2);
-  Mpz::mod (u2_, u2_, C.M_);
+  Mpz::mod (u2_, u2_, C.M());
 }
 
 /* */
-bool CL_HSMqk_ZKAoK::Proof::verify (const CL_HSMqk_ZKAoK &C,
-                                    const PublicKey &pk,
-                                    const CipherText &c) const
+inline
+bool CL_HSMqk_ZKAoKProof::verify (const CL_HSMqk &C, OpenSSL::HashAlgo &H,
+                                  const CL_HSMqk::PublicKey &pk,
+                                  const CL_HSMqk::CipherText &c) const
 {
   bool ret = true;
+  int soundness = H.digest_nbits();
 
   /* Check that pk is a form in G */
   ret &= pk.elt().discriminant() == C.Cl_G().discriminant();
@@ -1011,20 +986,21 @@ bool CL_HSMqk_ZKAoK::Proof::verify (const CL_HSMqk_ZKAoK &C,
   ret &= C.genus (c.c2()) == CL_HSMqk::Genus ({ 1, 1 });
 
   /* Check u1 bound */
-  Mpz B (C.fud_factor_);
+  Mpz B (1UL);
+  Mpz::mulby2k (B, B, C.lambda_distance());
   Mpz::add (B, B, 1UL);
-  Mpz::mulby2k (B, B, C.C_exp2_);
-  Mpz::mul (B, B, C.exponent_bound_);
+  Mpz::mulby2k (B, B, soundness);
+  Mpz::mul (B, B, C.encrypt_randomness_bound());
   ret &= (u1_.sgn() >= 0 && u1_ <= B);
 
   /* Check u2 bound */
-  ret &= (u2_.sgn() >= 0 && u2_ < C.M_);
+  ret &= (u2_.sgn() >= 0 && u2_ < C.M());
 
   /* cu = (gq^u1, pk^u1 f^u2) */
-  CipherText cu (C.encrypt (pk, ClearText (C, u2_), u1_));
+  CL_HSMqk::CipherText cu (C, pk, CL_HSMqk::ClearText (C, u2_), u1_);
 
   /* ck = (c1^k, c2^k) */
-  CipherText ck (C.scal_ciphertexts (pk, c, k_, Mpz (0UL)));
+  CL_HSMqk::CipherText ck (C.scal_ciphertexts (pk, c, k_, Mpz (0UL)));
 
   QFI t1, t2;
 
@@ -1035,7 +1011,7 @@ bool CL_HSMqk_ZKAoK::Proof::verify (const CL_HSMqk_ZKAoK &C,
   C.Cl_Delta().nucompinv (t2, cu.c2(), ck.c2());
 
   /* Generate k using hash function and check that it matches */
-  Mpz k (k_from_hash (C, pk, c, t1, t2));
+  Mpz k (k_from_hash (H, pk, c, t1, t2));
   ret &= (k == k_);
 
   return ret;
@@ -1043,12 +1019,13 @@ bool CL_HSMqk_ZKAoK::Proof::verify (const CL_HSMqk_ZKAoK &C,
 
 /* */
 inline
-Mpz CL_HSMqk_ZKAoK::Proof::k_from_hash (const CL_HSMqk_ZKAoK &C,
-                                        const PublicKey &pk,
-                                        const CipherText &c,
-                                        const QFI &t1, const QFI &t2) const
+Mpz CL_HSMqk_ZKAoKProof::k_from_hash (OpenSSL::HashAlgo &H,
+                                      const CL_HSMqk::PublicKey &pk,
+                                      const CL_HSMqk::CipherText &c,
+                                      const QFI &t1, const QFI &t2) const
 {
-  return Mpz (C.H_ (pk, c, t1, t2), C.C_exp2_);
+  H << pk << c << t1 << t2;
+  return Mpz (H.digest ());
 }
 
 #endif /* CL_HSM_INL__ */

@@ -71,7 +71,7 @@ namespace BICYCL
 
         public:
           /* constructors */
-          PublicKey (const SecretKey &);
+          explicit PublicKey (const SecretKey &);
 
           /* getters */
           const Mpz & N () const;
@@ -100,8 +100,8 @@ namespace BICYCL
       };
 
       /* ctor */
-      Paillier (size_t N_nbits);
-      Paillier (SecLevel seclevel);
+      explicit Paillier (size_t N_nbits);
+      explicit Paillier (SecLevel seclevel);
 
       /* getters */
       size_t N_nbits () const;

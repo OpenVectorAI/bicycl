@@ -48,6 +48,7 @@ HashAlgo::HashAlgo (int nid) : md_(EVP_get_digestbynid (nid)),
 {
   if (md_ == NULL)
     throw std::runtime_error ("could not set EVP from nid in HashAlgo");
+  digest_init ();
 }
 
 /* */
@@ -100,61 +101,84 @@ HashAlgo & HashAlgo::operator= (HashAlgo &&H)
 
 /* */
 inline
-int HashAlgo::digest_size () const
+void HashAlgo::digest_init () const
+{
+  int ret = EVP_DigestInit_ex (mdctx_, md_, NULL);
+  if (ret != 1)
+    throw std::runtime_error ("EVP_DigestInit_ex failed in HashAlgo");
+}
+
+/* */
+inline
+HashAlgo & operator<< (HashAlgo &H, std::tuple<const void *, size_t> d)
+{
+  int ret = EVP_DigestUpdate (H.mdctx_, std::get<0>(d), std::get<1>(d));
+  if (ret != 1)
+    throw std::runtime_error ("EVP_DigestUpdate failed in Hash::operator<<");
+  return H;
+}
+
+/* */
+inline
+HashAlgo & operator<< (HashAlgo &H, const std::vector<unsigned char> &m)
+{
+  H << std::make_tuple<const void *, size_t>(m.data(),
+                                             m.size() * sizeof(unsigned char));
+  return H;
+}
+
+/* */
+inline
+HashAlgo & operator<< (HashAlgo &H, const Mpz &v)
+{
+  mpz_srcptr vptr = static_cast<mpz_srcptr> (v);
+  int s = v.sgn();
+  H << std::make_tuple<const void *, size_t>(&s, sizeof(int))
+    << std::make_tuple<const void *, size_t>(mpz_limbs_read (vptr),
+                                             v.nlimbs() * sizeof (mp_limb_t));
+  return H;
+}
+
+/* */
+inline
+HashAlgo::Digest HashAlgo::digest ()
+{
+  Digest h (EVP_MD_size (md_));
+
+  int ret = EVP_DigestFinal_ex (mdctx_, h.data(), NULL);
+  if (ret != 1)
+    throw std::runtime_error ("EVP_DigestFinal_ex failed in HashAlgo");
+
+  digest_init ();
+  return h;
+}
+
+/* */
+inline
+HashAlgo::Digest HashAlgo::digest (size_t digest_size)
+{
+  Digest h (digest_size);
+
+  int ret = EVP_DigestFinalXOF (mdctx_, h.data(), h.size());
+  if (ret != 1)
+    throw std::runtime_error ("EVP_DigestFinalXOF failed in HashAlgo");
+
+  digest_init ();
+  return h;
+}
+
+/* */
+inline
+int HashAlgo::digest_nbytes () const
 {
   return EVP_MD_size (md_);
 }
 
 /* */
-template <typename First, typename... Rem>
 inline
-HashAlgo::Digest HashAlgo::operator() (const First &first, const Rem&... rem)
+int HashAlgo::digest_nbits () const
 {
-  int ret = EVP_DigestInit_ex (mdctx_, md_, NULL);
-  if (ret != 1)
-    throw std::runtime_error ("EVP_DigestInit_ex failed in HashAlgo");
-
-  Digest h (digest_size ());
-  hash_update (first, rem...);
-
-  ret = EVP_DigestFinal_ex (mdctx_, h.data(), NULL);
-  if (ret != 1)
-    throw std::runtime_error ("EVP_DigestFinal_ex failed in HashAlgo");
-
-  return h;
-}
-
-/* */
-template <typename First, typename... Rem>
-inline
-void HashAlgo::hash_update (const First &first, const Rem&... rem)
-{
-  hash_update (first);
-  hash_update (rem...);
-}
-
-/* */
-inline
-void HashAlgo::hash_update_implem (const void *ptr, size_t n)
-{
-  int ret = EVP_DigestUpdate (mdctx_, ptr, n);
-  if (ret != 1)
-    throw std::runtime_error ("EVP_DigestUpdate failed in hash_update_implem");
-}
-
-/* */
-template <>
-void HashAlgo::hash_update (const std::vector<unsigned char> &m)
-{
-  hash_update_implem (m.data(), m.size() * sizeof(unsigned char));
-}
-
-/* */
-template <>
-void HashAlgo::hash_update (const Mpz &v)
-{
-  mpz_srcptr vptr = static_cast<mpz_srcptr> (v);
-  hash_update_implem (mpz_limbs_read (vptr), v.nlimbs() * sizeof (mp_limb_t));
+  return 8 * digest_nbytes();
 }
 
 /******************************************************************************/
@@ -183,6 +207,29 @@ BN::BN (BN &&other) : bn_(other.bn_)
 
 /* */
 inline
+BN::BN (const std::vector<unsigned char> &bytes)
+  : bn_ (BN_bin2bn (bytes.data(), bytes.size(), NULL))
+{
+  if (bn_ == NULL)
+    throw std::runtime_error ("Could not set BIGNUM from binary");
+}
+
+/* */
+inline
+BN::BN (const Mpz &v) : BN()
+{
+  *this = v;
+}
+
+/* */
+inline
+BN::BN (unsigned long v) : BN()
+{
+  *this = v;
+}
+
+/* */
+inline
 BN & BN::operator= (const BN &other)
 {
   const BIGNUM *ret = BN_copy (bn_, other.bn_);
@@ -202,6 +249,25 @@ BN & BN::operator= (BN &&other)
 
 /* */
 inline
+BN & BN::operator= (const Mpz &v)
+{
+  unsigned char *tmp = (unsigned char *) malloc ((v.nbits() + 7) / 8);
+  if (tmp == NULL)
+    throw std::runtime_error ("could not allocate temporary buffer");
+
+  size_t len;
+  mpz_export (tmp, &len, -1, 1, 0, 0, static_cast<mpz_srcptr>(v));
+  BIGNUM *ret = BN_lebin2bn (tmp, len, bn_);
+  if (ret == NULL)
+    throw std::runtime_error ("BN_lebin2bn failed");
+  free (tmp);
+  if (v.sgn() < 0)
+    neg();
+  return *this;
+}
+
+/* */
+inline
 BN::~BN ()
 {
   BN_free (bn_);
@@ -209,9 +275,48 @@ BN::~BN ()
 
 /* */
 inline
-bool BN::operator== (BN::RawSrcPtr other) const
+BN::operator Mpz () const
 {
-  return BN_cmp (bn_, other) == 0;
+  int nbytes = num_bytes();
+  if (nbytes > 0)
+  {
+    Mpz r (BN::BIGNUM_abs_to_bytes (bn_));
+    if (BN_is_negative (bn_))
+      r.neg();
+    return r;
+  }
+  else
+    return Mpz(0UL);
+}
+
+/* */
+inline
+BN & BN::operator= (unsigned long other)
+{
+  BN_set_word (bn_, other);
+  return *this;
+}
+
+/* */
+inline
+BN & BN::operator*= (unsigned long other)
+{
+  BN_mul_word (bn_, other);
+  return *this;
+}
+
+/* */
+inline
+bool BN::operator== (const BN &other) const
+{
+  return BN_cmp (bn_, other.bn_) == 0;
+}
+
+/* */
+inline
+bool BN::operator!= (const BN &other) const
+{
+  return !(*this == other);
 }
 
 /* */
@@ -230,56 +335,64 @@ int BN::num_bytes () const
 
 /* */
 inline
-void BN::add (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b)
+void BN::neg ()
 {
-  int ret = BN_add (r.bn_, a, b);
+  BN_set_negative (bn_, !BN_is_negative (bn_));
+}
+
+/* */
+inline
+void BN::add (BN &r, const BN &a, const BN &b)
+{
+  int ret = BN_add (r.bn_, a.bn_, b.bn_);
   if (ret != 1)
     throw std::runtime_error ("BN_add failed");
 }
 
 /* */
 inline
-BN::operator BN::RawSrcPtr () const
-{
-  return bn_;
-}
-
-/* */
-inline
-void BN::to_bytes (std::vector<unsigned char> &dst) const
-{
-  dst.resize (num_bytes());
-  BN_bn2bin (bn_, dst.data());
-}
-
-/* */
-inline
-void BN::from_bytes (const std::vector<unsigned char> &src)
-{
-  const BIGNUM *ret = BN_bin2bn (src.data(), src.size(), bn_);
-  if (ret == NULL)
-    throw std::runtime_error ("Could not set BIGNUM from binary");
-}
-
-/* */
-template <>
-void HashAlgo::hash_update (const OpenSSL::BN &v)
-{
-  std::vector<unsigned char> bin;
-  v.to_bytes (bin);
-  hash_update (bin);
-}
-
-/* */
-inline
 std::ostream & operator<< (std::ostream &o, const BN &v)
 {
-  char *buf = BN_bn2dec (v);
+  char *buf = BN_bn2dec (v.bn_);
   if (buf == NULL)
     throw std::runtime_error ("BN_bn2dec failed in operator<<");
   o << buf;
   OPENSSL_free (buf);
   return o;
+}
+
+/* */
+inline
+void random_BN_2exp (const BN &r, int nbits)
+{
+  int ret = BN_rand (r.bn_, nbits, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
+  if (ret != 1)
+  {
+    throw std::runtime_error ("BN_rand failed in random_BN_2exp");
+  }
+}
+
+/* */
+inline
+std::vector<unsigned char> BN::BIGNUM_abs_to_bytes (const BIGNUM *v)
+{
+  int nbytes = BN_num_bytes (v);
+  std::vector<unsigned char> r (nbytes);
+  int ret = BN_bn2binpad (v, r.data(), nbytes);
+  if (ret < 0)
+  {
+    throw std::runtime_error ("BN_bn2binpad failed in BIGNUM_abs_to_bytes");
+  }
+  return r;
+}
+
+/* */
+inline
+HashAlgo & operator<< (HashAlgo &H, const BN &v)
+{
+  std::vector<unsigned char> b (BN::BIGNUM_abs_to_bytes (v.bn_));
+  int is_neg = BN_is_negative (v.bn_);
+  return H << b << std::make_tuple<const void *, size_t>(&is_neg, sizeof(int));
 }
 
 /****************************************************************************/
@@ -294,11 +407,19 @@ ECPoint::ECPoint (const ECGroup &E) : P_(NULL)
 
 /* */
 inline
-ECPoint::ECPoint (const ECGroup &E, ECPoint::RawSrcPtr Q) : P_(NULL)
+ECPoint::ECPoint (const ECGroup &E, const ECPoint &Q)
+  : P_(EC_POINT_dup (Q.P_, E.ec_group_))
 {
-  P_ = EC_POINT_dup (Q, E.ec_group_);
   if (P_ == NULL)
     throw std::runtime_error ("EC_POINT_dup failed in ECPoint constructor");
+}
+
+/* */
+inline
+ECPoint::ECPoint (const ECGroup &E, const BN & m)
+  : ECPoint (E)
+{
+  E.scal_mul_gen (*this, m);
 }
 
 /* */
@@ -312,21 +433,12 @@ ECPoint::ECPoint (ECPoint &&Q) : P_(Q.P_)
  * Assumes Q can be copied into P_ (must be init with compatible ECGroup).
  */
 inline
-ECPoint & ECPoint::operator= (ECPoint::RawSrcPtr Q)
+ECPoint & ECPoint::operator= (const ECPoint &Q)
 {
-  int ret = EC_POINT_copy (P_, Q);
+  int ret = EC_POINT_copy (P_, Q.P_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_copy failed in ECPoint::operator=");
   return *this;
-}
-
-/*
- * Assumes Q can be copied into P_ (must be init with compatible ECGroup).
- */
-inline
-ECPoint & ECPoint::operator= (const ECPoint &Q)
-{
-  return operator= (Q.P_);
 }
 
 /*
@@ -347,87 +459,6 @@ ECPoint::~ECPoint ()
   EC_POINT_free (P_);
 }
 
-/* */
-inline
-ECPoint::operator ECPoint::RawSrcPtr  () const
-{
-  return P_;
-}
-
-/******************************************************************************/
-/* */
-inline
-ECKey::ECKey (const ECGroup &E) : key_ (EC_KEY_new())
-{
-  if (key_ == NULL)
-    throw std::runtime_error ("could not allocate EC_KEY in ECKey constructor");
-
-  int ret = EC_KEY_set_group (key_, E.ec_group_);
-  if (ret != 1)
-    throw std::runtime_error ("could not set group in ECKey constructor");
-
-  ret = EC_KEY_generate_key (key_);
-  if (ret != 1)
-    throw std::runtime_error ("could not generate key in ECKey constructor");
-}
-
-/* */
-inline
-ECKey::ECKey (const ECKey &K) : key_ (EC_KEY_new())
-{
-  if (key_ == NULL)
-    throw std::runtime_error ("could not allocate EC_KEY in ECKey constructor");
-
-  operator= (K);
-}
-
-/* */
-inline
-ECKey::ECKey (ECKey &&K) : key_(K.key_)
-{
-  K.key_ = NULL;
-}
-
-/* */
-inline
-ECKey::~ECKey ()
-{
-  EC_KEY_free (key_);
-}
-
-/* */
-inline
-ECKey & ECKey::operator= (const ECKey &K)
-{
-  EC_KEY *ret = EC_KEY_copy (key_, K.key_);
-  if (ret == NULL)
-    throw std::runtime_error ("EC_KEY_copy failed in ECKey copy assignment");
-  return *this;
-}
-
-/* */
-inline
-ECKey & ECKey::operator= (ECKey &&K)
-{
-  key_ = K.key_;
-  K.key_ = NULL;
-  return *this;
-}
-
-/* */
-inline
-BN::RawSrcPtr ECKey::get_value () const
-{
-  return EC_KEY_get0_private_key (key_);
-}
-
-/* */
-inline
-ECPoint::RawSrcPtr ECKey::get_ec_point () const
-{
-  return EC_KEY_get0_public_key (key_);
-}
-
 /******************************************************************************/
 /* */
 inline
@@ -441,7 +472,8 @@ ECGroup::ECGroup (SecLevel seclevel) : ctx_ (BN_CTX_new())
   if (ctx_ == NULL)
     throw std::runtime_error ("could not allocate BN_CTX");
 
-  order_ = EC_GROUP_get0_order (ec_group_);
+  /* convert group order to Mpz */
+  order_ = BN::BIGNUM_abs_to_bytes (get_order());
 }
 
 /* */
@@ -483,92 +515,129 @@ const Mpz & ECGroup::order () const
 
 /* */
 inline
-ECPoint::RawSrcPtr ECGroup::gen () const
+BN ECGroup::a () const
 {
-  return EC_GROUP_get0_generator (ec_group_);
-}
-
-/* */
-inline
-bool ECGroup::is_on_curve (ECPoint::RawSrcPtr P) const
-{
-  return EC_POINT_is_on_curve (ec_group_, P, ctx_);
-}
-
-/* */
-inline
-bool ECGroup::is_at_infinity (ECPoint::RawSrcPtr P) const
-{
-  return EC_POINT_is_at_infinity (ec_group_, P);
-}
-
-/* */
-inline
-void ECGroup::get_coords_of_point (BN &x, BN &y, ECPoint::RawSrcPtr P) const
-{
-  int ret = EC_POINT_get_affine_coordinates (ec_group_, P, x.bn_, y.bn_, ctx_);
+  BN a;
+  int ret = EC_GROUP_get_curve (ec_group_, NULL, a.bn_, NULL, ctx_);
   if (ret != 1)
-    throw std::runtime_error ("Could not get x, y coordinates");
+  {
+    throw std::runtime_error ("EC_GROUP_get_curve failed for a");
+  }
+  return a;
 }
 
 /* */
 inline
-void ECGroup::get_x_coord_of_point (BN &x, ECPoint::RawSrcPtr P) const
+BN ECGroup::b () const
 {
-  int ret = EC_POINT_get_affine_coordinates (ec_group_, P, x.bn_, NULL, ctx_);
+  BN b;
+  int ret = EC_GROUP_get_curve (ec_group_, NULL, NULL, b.bn_, ctx_);
+  if (ret != 1)
+  {
+    throw std::runtime_error ("EC_GROUP_get_curve failed for b");
+  }
+  return b;
+}
+
+/* */
+inline
+BN ECGroup::p () const
+{
+  BN p;
+  int ret = EC_GROUP_get_curve (ec_group_, p.bn_, NULL, NULL, ctx_);
+  if (ret != 1)
+  {
+    throw std::runtime_error ("EC_GROUP_get_curve failed for p");
+  }
+  return p;
+}
+
+/* */
+inline
+bool ECGroup::is_on_curve (const ECPoint &P) const
+{
+  return EC_POINT_is_on_curve (ec_group_, P.P_, ctx_);
+}
+
+/* */
+inline
+bool ECGroup::is_at_infinity (const ECPoint &P) const
+{
+  return EC_POINT_is_at_infinity (ec_group_, P.P_);
+}
+
+/* */
+inline
+void ECGroup::x_coord_of_point (BN &x, const ECPoint &P) const
+{
+  int ret = EC_POINT_get_affine_coordinates (ec_group_, P.P_, x.bn_, NULL,
+                                                                          ctx_);
   if (ret != 1)
     throw std::runtime_error ("Could not get x coordinate");
 }
 
-/* */
 inline
-bool ECGroup::ec_point_eq (ECPoint::RawSrcPtr P, ECPoint::RawSrcPtr Q) const
+void ECGroup::coords_of_point (BN &x, BN &y, const ECPoint &P) const
 {
-  return EC_POINT_cmp (ec_group_, P, Q, ctx_) == 0;
+  coords_of_point (x, y, P.P_);
 }
 
 /* */
 inline
-void ECGroup::ec_add (ECPoint &R, ECPoint::RawSrcPtr P,
-                                  ECPoint::RawSrcPtr Q) const
+bool ECGroup::ec_point_eq (const ECPoint &P, const ECPoint &Q) const
 {
-  int ret = EC_POINT_add (ec_group_, R.P_, P, Q, ctx_);
+  return EC_POINT_cmp (ec_group_, P.P_, Q.P_, ctx_) == 0;
+}
+
+/* */
+inline
+void ECGroup::ec_add (ECPoint &R, const ECPoint &P, const ECPoint &Q) const
+{
+  int ret = EC_POINT_add (ec_group_, R.P_, P.P_, Q.P_, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_add failed in add");
 }
 
 /* */
 inline
-void ECGroup::scal_mul_gen (ECPoint &R, BN::RawSrcPtr n) const
+void ECGroup::ec_neg (ECPoint &R) const
 {
-  int ret = EC_POINT_mul (ec_group_, R.P_, n, NULL, NULL, ctx_);
+  int ret = EC_POINT_invert (ec_group_, R.P_, ctx_);
+  if (ret != 1)
+    throw std::runtime_error ("EC_POINT_invert failed in ec_neg");
+}
+
+/* */
+inline
+void ECGroup::scal_mul_gen (ECPoint &R, const BN &n) const
+{
+  int ret = EC_POINT_mul (ec_group_, R.P_, n.bn_, NULL, NULL, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_mul failed in scal_mul_gen");
 }
 
 /* */
 inline
-void ECGroup::scal_mul (ECPoint &R, BN::RawSrcPtr n,
-                                    ECPoint::RawSrcPtr P) const
+void ECGroup::scal_mul (ECPoint &R, const BN &n, const ECPoint &P) const
 {
-  int ret = EC_POINT_mul (ec_group_, R.P_, NULL, P, n, ctx_);
+  int ret = EC_POINT_mul (ec_group_, R.P_, NULL, P.P_, n.bn_, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_mul failed in scal_mul");
 }
 
 /* */
 inline
-void ECGroup::scal_mul (ECPoint &R, BN::RawSrcPtr m, BN::RawSrcPtr n,
-                                                     ECPoint::RawSrcPtr P) const
+void ECGroup::scal_mul (ECPoint &R, const BN &m, const BN &n,
+                                                     const ECPoint &P) const
 {
-  int ret = EC_POINT_mul (ec_group_, R.P_, m, P, n, ctx_);
+  int ret = EC_POINT_mul (ec_group_, R.P_, m.bn_, P.P_, n.bn_, ctx_);
   if (ret != 1)
     throw std::runtime_error ("EC_POINT_mul failed in scal_mul");
 }
 
 /* We assume that the order is prime (which must be the case for NIST curves) */
 inline
-bool ECGroup::has_correct_order (ECPoint::RawSrcPtr G) const
+bool ECGroup::has_correct_prime_order (const ECPoint &G) const
 {
   if (is_at_infinity (G))
     return false;
@@ -577,54 +646,160 @@ bool ECGroup::has_correct_order (ECPoint::RawSrcPtr G) const
     return false;
 
   ECPoint T (*this);
-
-  scal_mul (T, EC_GROUP_get0_order (ec_group_), G);
-  return is_at_infinity (T.P_);
+  int ret = EC_POINT_mul (ec_group_, T.P_, NULL, G.P_, get_order (), ctx_);
+  if (ret != 1)
+    throw std::runtime_error ("EC_POINT_mul failed in has_correct_prime_order");
+  return is_at_infinity (T);
 }
 
 /* */
 inline
-void ECGroup::mod_order (BN &r, BN::RawSrcPtr a) const
+void ECGroup::mod_order (BN &r, const BN &a) const
 {
-  int ret = BN_nnmod (r.bn_, a, EC_GROUP_get0_order (ec_group_), ctx_);
+  int ret = BN_nnmod (r.bn_, a.bn_, get_order (), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_nnmod failed");
 }
 
 /* */
 inline
-void ECGroup::add_mod_order (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b) const
+void ECGroup::add_mod_order (BN &r, const BN &a, const BN &b) const
 {
-  int ret = BN_mod_add (r.bn_, a, b, EC_GROUP_get0_order (ec_group_), ctx_);
+  int ret = BN_mod_add (r.bn_, a.bn_, b.bn_, get_order (), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_mod_add failed");
 }
 
 /* */
 inline
-void ECGroup::mul_mod_order (BN &r, BN::RawSrcPtr a, BN::RawSrcPtr b) const
+void ECGroup::mul_by_word_mod_order (BN &r, BN_ULONG w) const
 {
-  int ret = BN_mod_mul (r.bn_, a, b, EC_GROUP_get0_order (ec_group_), ctx_);
+  int ret = BN_mul_word (r.bn_, w);
+  if (ret != 1)
+    throw std::runtime_error ("BN_mod_word failed");
+  mod_order (r, r);
+}
+
+/* */
+inline
+void ECGroup::mul_mod_order (BN &r, const BN &a, const BN &b) const
+{
+  int ret = BN_mod_mul (r.bn_, a.bn_, b.bn_, get_order (), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_mod_mul failed");
 }
 
 /* */
 inline
-void ECGroup::inverse_mod_order (BN &r, BN::RawSrcPtr a) const
+void ECGroup::inverse_mod_order (BN &r, const BN &a) const
 {
-  const BIGNUM *ret = BN_mod_inverse (r.bn_, a, EC_GROUP_get0_order (ec_group_),
-                                                ctx_);
+  const BIGNUM *ret = BN_mod_inverse (r.bn_, a.bn_, get_order (), ctx_);
   if (ret == NULL)
     throw std::runtime_error ("could not inverse modulo order");
 }
 
 /* */
 inline
-bool ECGroup::is_positive_less_than_order (BN::RawSrcPtr v) const
+BN ECGroup::random_mod_order () const
 {
-  return !BN_is_negative (v) && !BN_is_zero (v)
-                             && BN_cmp (v, EC_GROUP_get0_order (ec_group_)) < 0;
+  BN r;
+  int ret = BN_priv_rand_range (r.bn_, get_order ());
+  if (ret != 1)
+    throw std::runtime_error ("BN_priv_rand_range failed");
+  return r;
+}
+
+/* */
+inline
+bool ECGroup::is_positive_less_than_order (const BN &v) const
+{
+  return !BN_is_negative (v.bn_) && !BN_is_zero (v.bn_)
+                                 && BN_cmp (v.bn_, get_order ()) < 0;
+}
+
+/* */
+inline
+const BIGNUM * ECGroup::get_order () const
+{
+  return EC_GROUP_get0_order (ec_group_);
+}
+
+/* */
+inline
+void ECGroup::coords_of_point (BN &x, BN &y, const EC_POINT *P) const
+{
+  int ret = EC_POINT_get_affine_coordinates (ec_group_, P, x.bn_, y.bn_, ctx_);
+  if (ret != 1)
+    throw std::runtime_error ("Could not get x, y coordinates");
+}
+
+/* */
+inline
+std::vector<unsigned char> ECGroup::EC_POINT_to_bytes (const EC_POINT *P) const
+{
+  size_t s = EC_POINT_point2oct (ec_group_, P, POINT_CONVERSION_UNCOMPRESSED,
+                                 NULL, 0, ctx_);
+  if (s == 0)
+  {
+    throw std::runtime_error ("could not get size in point_to_bytes");
+  }
+  std::vector<unsigned char> r(s);
+  s = EC_POINT_point2oct (ec_group_, P, POINT_CONVERSION_UNCOMPRESSED,
+                          r.data(), s, ctx_);
+  if (s == 0)
+  {
+    throw std::runtime_error ("could not convert in point_to_bytes");
+  }
+  return r;
+}
+
+/* */
+inline
+std::vector<unsigned char> ECGroup::ECPoint_to_bytes (const ECPoint &P) const
+{
+  return EC_POINT_to_bytes (P.P_);
+}
+
+/* */
+inline
+std::ostream & operator<< (std::ostream &o, const ECGroup &E)
+{
+  BN x, y;
+  E.coords_of_point (x, y, EC_GROUP_get0_generator (E.ec_group_));
+  return o << "E = EllipticCurve(GF(" << E.p() << "), ["
+           << E.a() << "," << E.b() << "])" << std::endl
+           << "P = E(" << x << ", " << y << ")" << std::endl;
+}
+
+/* */
+inline
+std::ostream & operator<< (std::ostream &o,
+                           std::tuple<const ECPoint &, const ECGroup &> pt)
+{
+  const ECPoint & P = std::get<0> (pt);
+  const ECGroup & E = std::get<1> (pt);
+  BN x, y;
+  E.coords_of_point (x, y, P);
+  return o << "(" << x << ", " << y << ")";
+}
+
+/* */
+inline
+HashAlgo & operator<< (HashAlgo &H, std::tuple<const ECPoint &, const ECGroup &> pt)
+{
+  const ECPoint & P = std::get<0> (pt);
+  const ECGroup & E = std::get<1> (pt);
+  std::vector<unsigned char> bin (E.ECPoint_to_bytes (P));
+  return H << bin;
+}
+
+/* */
+inline
+HashAlgo & operator<< (HashAlgo &H, const ECGroup &E)
+{
+  const EC_POINT *gen = EC_GROUP_get0_generator (E.ec_group_);
+  std::vector<unsigned char> gen_bytes (E.EC_POINT_to_bytes (gen));
+  return H << E.a() << E.b() << E.p() << gen_bytes;
 }
 
 #endif /* OPENSSL_WRAPPER_INL__ */
