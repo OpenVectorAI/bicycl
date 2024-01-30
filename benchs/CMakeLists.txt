@@ -7,6 +7,7 @@ set (BENCHS_LIST benchmark_CL_HSMqk
                  benchmark_CL_HSM2k
                  benchmark_Paillier
                  benchmark_JoyeLibert
+                 benchmark_threshold_ECDSA
                  )
 
 ### Automatically create target and test from TESTS_LIST

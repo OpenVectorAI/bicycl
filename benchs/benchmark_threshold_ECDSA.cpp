@@ -18,12 +18,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <algorithm>
 #include <numeric>
 #include <string>
 #include <sstream>
-#include <stdexcept>
-#include <iostream>
 
 #include "bicycl.hpp"
 #include "internals.hpp"
@@ -31,44 +28,8 @@
 using std::string;
 
 using namespace BICYCL;
-
-/* */
-class LogicalError : public std::runtime_error
-{
-  public:
-    using runtime_error::runtime_error;
-};
-
-/* */
-std::ostream & operator<< (std::ostream &o, const std::vector<unsigned int> &v)
-{
-  o << '[';
-  for (unsigned int i: v)
-    o << ' ' << i << ',';
-  return o << ']';
-}
-
-/* */
-bool
-test_commitments (const thresholdECDSA &C, size_t niter, const string &pre)
-{
-  bool ret = true;
-
-  thresholdECDSA::Commitment c;
-  thresholdECDSA::CommitmentSecret r;
-
-  for (size_t i = 0; i < niter; i++)
-  {
-    OpenSSL::BN k (C.ec_group().random_mod_order());
-    OpenSSL::ECPoint Q (C.ec_group(), k);
-    tie(c, r) = C.commit (Q);
-    ret &= C.open (c, Q, r);
-  }
-
-  string line (pre + " commitments");
-  Test::result_line (line, ret);
-  return ret;
-}
+using BICYCL::Bench::ms;
+using BICYCL::Bench::us;
 
 using Keygen1 = thresholdECDSA::KeygenPart1;
 using Keygen2 = thresholdECDSA::KeygenPart2;
@@ -85,41 +46,44 @@ using Signature = thresholdECDSA::Signature;
 template <class T>
 using PMap = thresholdECDSA::ParticipantsMap<T>;
 
-/* */
-bool
-test_sign (const thresholdECDSA &C, size_t niter, RandGen &randgen,
-           const string &pre)
-{
-  bool ret = true;
 
+/* */
+void threshold_ECDSA_benchs_sign (const thresholdECDSA &C,
+                                 RandGen &randgen, const string &pre)
+{
   const OpenSSL::ECGroup & E = C.ec_group();
 
-  for (size_t iter = 0; iter < niter; iter++)
+  for (unsigned int n = 2; n < 10; n += 2)
   {
-    unsigned int n = 2 + randgen.random_ui_2exp (3); /* in [2,9] */
-    unsigned int t = 1 + randgen.random_ui (n-1); /* in [1, n-1] */
-    std::vector<unsigned int> S(n);
-    std::iota(S.begin(), S.end(), 0); /* S contains [0..n-1] */
-    while (S.size() > t+1)
-      S.erase (S.begin() + randgen.random_ui (S.size()));
-
-    std::vector<Keygen1> data1;     data1.reserve (n);
-    std::vector<Keygen2> data2;     data2.reserve (n);
-    std::vector<SecretKey> sk;      sk.reserve (n);
-
-    PMap<Sign1> signdata1;          signdata1.reserve (t);
-    PMap<Sign2> signdata2;          signdata2.reserve (t);
-    PMap<Sign3> signdata3;          signdata3.reserve (t);
-    PMap<Sign4> signdata4;          signdata4.reserve (t);
-    PMap<Sign5> signdata5;          signdata5.reserve (t);
-    PMap<Sign6> signdata6;          signdata6.reserve (t);
-    PMap<Sign7> signdata7;          signdata7.reserve (t);
-    PMap<Sign8> signdata8;          signdata8.reserve (t);
-    PMap<Signature> signature;      signature.reserve (t);
-
-    const thresholdECDSA::Message &m = C.random_message();
-    try
+    for (unsigned int t = 1; t < n; t++)
     {
+      std::vector<unsigned int> S(n);
+      std::iota(S.begin(), S.end(), 0); /* S contains [0..n-1] */
+      while (S.size() > t+1)
+        S.erase (S.begin() + randgen.random_ui (S.size()));
+
+      std::vector<Keygen1> data1;     data1.reserve (n);
+      std::vector<Keygen2> data2;     data2.reserve (n);
+      std::vector<SecretKey> sk;      sk.reserve (n);
+
+      PMap<Sign1> signdata1;          signdata1.reserve (t);
+      PMap<Sign2> signdata2;          signdata2.reserve (t);
+      PMap<Sign3> signdata3;          signdata3.reserve (t);
+      PMap<Sign4> signdata4;          signdata4.reserve (t);
+      PMap<Sign5> signdata5;          signdata5.reserve (t);
+      PMap<Sign6> signdata6;          signdata6.reserve (t);
+      PMap<Sign7> signdata7;          signdata7.reserve (t);
+      PMap<Sign8> signdata8;          signdata8.reserve (t);
+      PMap<Signature> signature;      signature.reserve (t);
+
+      const thresholdECDSA::Message &m = C.random_message();
+
+      const size_t niter = 100;
+      unsigned int p = S[0];
+
+      std::stringstream desc;
+      desc << pre << "| " << n << " | " << t;
+
       /***** Keygen ***********************************************************/
 
       /* keygen part 1 */
@@ -170,60 +134,17 @@ test_sign (const thresholdECDSA &C, size_t niter, RandGen &randgen,
         sk.push_back (SecretKey (C, i, data1[i], data2[i], V, ZK, PK));
       }
 
-      /***** Check *****/
-      /* Check that all public key are the same and equal to sum of Qi */
-      OpenSSL::ECPoint Q (E, data1[0].Q_part());
-      for (unsigned int i = 1; i < n; i++)
-      {
-        E.ec_add (Q, Q, data1[i].Q_part());
-      }
-      for (unsigned int i = 1; i < n; i++)
-      {
-        if (!E.ec_point_eq (sk[i].public_key(), Q))
-        {
-          throw ("public key Q do not match");
-        }
-      }
 
-      /* Check that Xj = xi P */
-      OpenSSL::ECPoint X (E);
-      for (unsigned int i = 0; i < n; i++)
+      /* benchs keygen */
+      auto keygen = [ &C, &p, &n, &t, &data1, &data2, &randgen, &CoQ, &Q_vec,
+                                              &CoQSec, &V, &Sigma, &ZK, &PK ] ()
       {
-        E.scal_mul_gen (X, sk[i].x_part()); /* xi P */
-        for (unsigned int j = 0; j < n; j++)
-        {
-          if (i != j && !E.ec_point_eq (X, sk[j].X(i)))
-          {
-            throw LogicalError ("cannot verify Xj = xi P");
-          }
-        }
-      }
+        Keygen1 (C, n, t, p);
+        Keygen2 (C, data1[p], randgen, CoQ, Q_vec, CoQSec, V, Sigma[p]);
+        SecretKey (C, p, data1[p], data2[p], V, ZK, PK);
+      };
+      Bench::one_function<ms, ms> (keygen, niter, "keygen", desc.str());
 
-      /* Check that u = sum{u_i} can be retrieved from secret xi's */
-      OpenSSL::BN u (data1[0].u_part());
-      for (unsigned int i = 1; i < n; i++)
-      {
-        E.add_mod_order (u, u, data1[i].u_part());
-      }
-      OpenSSL::BN ut(0UL), l;
-      for (unsigned int s: S)
-      {
-        l = C.lagrange_at_zero (S, s);
-        E.mul_mod_order (l, l, sk[s].x_part());
-        E.add_mod_order (ut, ut, l);
-      }
-      if (u != ut)
-      {
-        throw LogicalError ("cannot reconstruct u from secret {xi}");
-      }
-
-      /* Check that Q = uP */
-      OpenSSL::ECPoint U (E);
-      E.scal_mul_gen (U, u);
-      if (!E.ec_point_eq (Q, U))
-      {
-        throw LogicalError ("Q is not u P");
-      }
 
       /***** Signing **********************************************************/
 
@@ -289,23 +210,6 @@ test_sign (const thresholdECDSA &C, size_t niter, RandGen &randgen,
         signdata4.emplace (i, Sign4 (C, signdata1.at(i), delta_map));
       }
 
-      /* check */
-      OpenSSL::BN k(0UL), gamma(0UL), delta;
-      for (unsigned int i: S)
-      {
-        OpenSSL::BN ki (signdata1.at(i).k_part());
-        E.add_mod_order (k, k, ki);
-        E.add_mod_order (gamma, gamma, signdata1.at(i).gamma());
-      }
-      E.mul_mod_order (delta, k, gamma);
-      for (unsigned int i: S)
-      {
-        if (delta != signdata4.at(i).delta())
-        {
-          throw LogicalError ("delta is not equal to k * gamma");
-        }
-      }
-
       /* fake the communication */
       PMap<ECNIZKProof> zk_map;
       PMap<thresholdECDSA::CommitmentSecret> CoS_map;
@@ -323,23 +227,6 @@ test_sign (const thresholdECDSA &C, size_t niter, RandGen &randgen,
         signdata5.emplace (i, Sign5 (C, signdata1.at(i), signdata2.at(i),
                                         signdata3.at(i), signdata4.at(i),
                                         m, Gamma_map, CoS_map, zk_map));
-      }
-
-      /* check */
-      for (unsigned int i: S)
-      {
-        if (!E.ec_point_eq(signdata5.at(i).R(), signdata5.at(S[0]).R()))
-        {
-          throw LogicalError ("R does not match");
-        }
-        if (signdata5.at(i).r() != signdata5.at(S[0]).r())
-        {
-          throw LogicalError ("r does not match");
-        }
-        if (signdata5.at(i).z() != signdata5.at(S[0]).z())
-        {
-          throw LogicalError ("z does not match");
-        }
       }
 
       /* fake the communication */
@@ -410,68 +297,60 @@ test_sign (const thresholdECDSA &C, size_t niter, RandGen &randgen,
                                                             sk[i], s_map));
       }
 
-      /***** Final check *****/
-      for (unsigned int i: S)
+      /* benchs sign */
+      auto sign = [ &C, &p, &S, &sk, &randgen, &signdata1, &signdata2,
+                    &signdata3, &signdata4, &signdata5, &signdata6, &signdata7,
+                    &Co_map, &C1, &ZK1, &c_kg_map, &c_kw_map, &B_map,
+                    &delta_map, &m, &Gamma_map, &CoS_map, &zk_map, Co2_map,
+                    &V_map, &A_map, &C2S_map, &aok_map, &Co3_map, &U_map,
+                    &T_map, &C3S_map, &s_map ] ()
       {
-        if (signature.at(i) != signature.at(S[0]))
-        {
-          throw LogicalError ("signatures does not match");
-        }
-
-        if (!C.verify (signature.at(i), sk[i].public_key(), m))
-        {
-          throw LogicalError ("could not verify signature");
-        }
-      }
-    }
-    catch (LogicalError &e)
-    {
-      std::cerr << iter << ": LogicalError, " << e.what() << std::endl;
-      ret = false;
-    }
-    catch (thresholdECDSA::ProtocolAbortError &e)
-    {
-      std::cerr << iter << ": ProtocolAbortError, " << e.what() << std::endl;
-      ret = false;
+        Sign1 (C, p, S, sk[p], randgen);
+        Sign2 (C, signdata1.at(p), sk[p], Co_map, C1, ZK1, randgen);
+        Sign3 (C, signdata1.at(p), signdata2.at(p), sk[p], c_kg_map.at(p),
+                                                  c_kw_map.at(p), B_map.at(p));
+        Sign4 (C, signdata1.at(p), delta_map);
+        Sign5 (C, signdata1.at(p), signdata2.at(p), signdata3.at(p),
+                  signdata4.at(p), m, Gamma_map, CoS_map, zk_map);
+        Sign6 (C, signdata5.at(p), Co2_map);
+        Sign7 (C, signdata1.at(p), signdata5.at(p), signdata6.at(p),
+                  sk.at(p), V_map, A_map, C2S_map, aok_map);
+        Sign8 (C, signdata1.at(p), signdata7.at(p), Co3_map, U_map, T_map,
+                                                                      C3S_map);
+        Signature (C, signdata1.at(p), signdata5.at(p), sk[p], s_map);
+      };
+      Bench::one_function<ms, ms> (sign, niter, "sign", desc.str());
     }
   }
-
-  Test::result_line (pre, ret);
-  return ret;
 }
 
-/******************************************************************************/
-bool check (SecLevel seclevel, RandGen &randgen, size_t niter)
+/* */
+void threshold_ECDSA_benchs_all (const thresholdECDSA &C,
+                                 RandGen &randgen, const string &pre)
 {
-  bool success = true;
-
-  std::stringstream desc;
-  desc << "security " << seclevel << " bits";
-
-  thresholdECDSA C (seclevel, randgen);
-  desc << " threshold ECDSA";
-
-  success &= test_commitments (C, niter, desc.str());
-  success &= test_sign (C, niter, randgen, desc.str());
-
-  return success;
+  threshold_ECDSA_benchs_sign (C, randgen, pre);
 }
 
-/******************************************************************************/
+/* */
 int
 main (int argc, char *argv[])
 {
-  bool success = true;
-
   RandGen randgen;
   randseed_from_argv (randgen, argc, argv);
 
-  Test::OverrideOpenSSLRand::WithRandGen tmp_override (randgen);
+  std::cout << "security level | n | t |     operation   |   time   "
+            << "| time per op. " << std::endl;
 
-  success &= check (SecLevel::_112, randgen, 15);
-  success &= check (SecLevel::_128, randgen, 10);
-  success &= check (SecLevel::_192, randgen, 5);
-  success &= check (SecLevel::_256, randgen, 1);
+  for (const SecLevel seclevel: SecLevel::All())
+  {
+    /* With a random q twice as big as the security level */
+    std::stringstream desc;
+    OpenSSL::HashAlgo H (seclevel);
+    thresholdECDSA C (seclevel, randgen);
+    desc << "  " << seclevel << " bits     ";
+    threshold_ECDSA_benchs_all (C, randgen, desc.str());
+    std::cout << std::endl;
+  }
 
-  return success ? EXIT_SUCCESS : EXIT_FAILURE;
+  return EXIT_SUCCESS;
 }

@@ -322,7 +322,6 @@ namespace BICYCL
                      const ParticipantsMap<OpenSSL::ECPoint> &U_map,
                      const ParticipantsMap<OpenSSL::ECPoint> &T_map,
                      const ParticipantsMap<CommitmentSecret> &CoSec_map);
-        private:
       }; /* SignPart8 */
 
       /* */

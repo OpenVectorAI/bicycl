@@ -68,8 +68,8 @@ thresholdECDSA::KeygenPart1::KeygenPart1 (const thresholdECDSA &C,
   V_.reserve (t);
   for (unsigned int k = 0; k < t; k++)
   {
-    a_.emplace (a_.end(), C.ec_group_.random_mod_order());
-    V_.emplace (V_.end(), C.ec_group_, a_.back());
+    a_.push_back (C.ec_group_.random_mod_order());
+    V_.push_back (OpenSSL::ECPoint (C.ec_group_, a_[k]));
   }
 
   /* compute sigma_j values */
@@ -317,11 +317,11 @@ thresholdECDSA::SecretKey::SecretKey (const thresholdECDSA &C, unsigned int i,
       {
         throw ProtocolAbortError ("cannot verify ZK proof");
       }
-      X_.emplace (X_.end(), C.ec_group_, Xj);
+      X_.push_back (OpenSSL::ECPoint (C.ec_group_, Xj));
     }
     else
     {
-      X_.emplace (X_.end(), C.ec_group_);/* XXX Do we need the actual point ? */
+      X_.push_back (OpenSSL::ECPoint (C.ec_group_));/* XXX Do we need the actual point ? */
     }
   }
 }
