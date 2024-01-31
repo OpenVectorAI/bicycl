@@ -111,7 +111,6 @@ namespace BICYCL
 
     private:
       OpenSSL::ECPoint R_;
-      OpenSSL::BN c_;
       OpenSSL::BN z_;
   }; /* ECNIZKProof */
 
@@ -142,7 +141,6 @@ namespace BICYCL
 
     private:
       OpenSSL::ECPoint H_;
-      OpenSSL::BN c_;
       OpenSSL::BN t1_;
       OpenSSL::BN t2_;
   }; /* ECNIZKAoK */

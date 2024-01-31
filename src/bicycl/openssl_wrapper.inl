@@ -567,6 +567,20 @@ bool ECGroup::is_on_curve (const ECPoint &P) const
 
 /* */
 inline
+bool ECGroup::is_in_group (const ECPoint &P) const
+{
+  if (!is_on_curve (P))
+    return false;
+  ECPoint T (*this);
+  int ret = EC_POINT_mul (ec_group_, T.P_, NULL, P.P_,
+                                     EC_GROUP_get0_cofactor (ec_group_), ctx_);
+  if (ret != 1)
+    throw std::runtime_error ("EC_POINT_mul failed in is_on_curve");
+  return !is_at_infinity (T);
+}
+
+/* */
+inline
 bool ECGroup::is_at_infinity (const ECPoint &P) const
 {
   return EC_POINT_is_at_infinity (ec_group_, P.P_);
@@ -674,6 +688,15 @@ void ECGroup::add_mod_order (BN &r, const BN &a, const BN &b) const
   int ret = BN_mod_add (r.bn_, a.bn_, b.bn_, get_order (), ctx_);
   if (ret != 1)
     throw std::runtime_error ("BN_mod_add failed");
+}
+
+/* */
+inline
+void ECGroup::sub_mod_order (BN &r, const BN &a, const BN &b) const
+{
+  int ret = BN_mod_sub (r.bn_, a.bn_, b.bn_, get_order (), ctx_);
+  if (ret != 1)
+    throw std::runtime_error ("BN_mod_sub failed");
 }
 
 /* */

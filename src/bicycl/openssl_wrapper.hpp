@@ -207,6 +207,7 @@ namespace BICYCL
 
         /* */
         bool is_on_curve (const ECPoint &P) const;
+        bool is_in_group (const ECPoint &P) const;
         bool is_at_infinity (const ECPoint &P) const;
 
         /* elliptic operations */
@@ -225,6 +226,7 @@ namespace BICYCL
         /* arithmetic operations modulo the group order */
         void mod_order (BN &r, const BN &a) const;
         void add_mod_order (BN &r, const BN &a, const BN &b) const;
+        void sub_mod_order (BN &r, const BN &a, const BN &b) const;
         void mul_mod_order (BN &r, const BN &a, const BN &b) const;
         void mul_by_word_mod_order (BN &r, BN_ULONG w) const;
         void inverse_mod_order (BN &r, const BN &a) const;

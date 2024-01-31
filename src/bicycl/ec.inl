@@ -176,12 +176,10 @@ ECNIZKProof::ECNIZKProof (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
   OpenSSL::BN r (E.random_mod_order());
   E.scal_mul_gen (R_, r);
 
-  OpenSSL::BN tmp;
+  OpenSSL::BN c (hash_for_challenge (H, E, R_, Q)); /* c = Hash (E, R_, Q) */
 
-  c_ = hash_for_challenge (H, E, R_, Q); /* c = Hash(R_, Q, P) */
-
-  E.mul_mod_order (tmp, c_, s);
-  E.add_mod_order (z_, tmp, r); /* z = r + c*s */
+  E.mul_mod_order (z_, c, s);
+  E.sub_mod_order (z_, r, z_); /* z = r - c*s */
 }
 
 /* */
@@ -195,7 +193,7 @@ ECNIZKProof::ECNIZKProof (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
 /* */
 inline
 ECNIZKProof::ECNIZKProof (const OpenSSL::ECGroup &E, const ECNIZKProof &p)
-  : R_ (E, p.R_), c_(p.c_), z_(p.z_)
+  : R_ (E, p.R_), z_(p.z_)
 {
 }
 
@@ -204,18 +202,15 @@ inline
 bool ECNIZKProof::verify (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
                           const PublicValue &Q) const
 {
-  OpenSSL::BN c;
-  c = hash_for_challenge (H, E, R_, Q);
+  if (!E.is_in_group (Q))
+    return false;
 
-  OpenSSL::ECPoint lhs (E);
+  OpenSSL::BN c (hash_for_challenge (H, E, R_, Q)); /* c = Hash (E, R_, Q) */
+
   OpenSSL::ECPoint rhs (E);
+  E.scal_mul (rhs, z_, c, Q); /* z*P + cQ */
 
-  E.scal_mul_gen (lhs, z_); /* z*G */
-
-  E.scal_mul (rhs, c, Q);
-  E.ec_add (rhs, R_, rhs); /* R + c*Q */
-
-  return c == c_ && E.ec_point_eq (lhs, rhs);
+  return E.ec_point_eq (R_, rhs);
 }
 
 /* */
@@ -253,13 +248,14 @@ ECNIZKAoK::ECNIZKAoK (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
 
   E.scal_mul (H_, v, u, R); /* H = u R + v P */
 
-  c_ = hash_for_challenge (H, E, R, V, A, H_); /* c = Hash(R, V, A, H) */
+  /* c = Hash(E, R, V, A, H) */
+  OpenSSL::BN c (hash_for_challenge (H, E, R, V, A, H_));
 
-  E.mul_mod_order (t1_, c_, x);
+  E.mul_mod_order (t1_, c, x);
   E.add_mod_order (t1_, t1_, u); /* t1 = u + c * x */
 
-  E.mul_mod_order (t2_, c_, y);
-  E.mul_mod_order (u, c_, c_); /* use u as temp var */
+  E.mul_mod_order (t2_, c, y);
+  E.mul_mod_order (u, c, c); /* use u as temp var */
   E.mul_mod_order (u, u, rho); /* use u as temp var */
   E.add_mod_order (t2_, t2_, u);
   E.add_mod_order (t2_, t2_, v); /* t2 = v + c*y + c^2 * rho */
@@ -268,7 +264,7 @@ ECNIZKAoK::ECNIZKAoK (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
 /* */
 inline
 ECNIZKAoK::ECNIZKAoK (const OpenSSL::ECGroup &E, const ECNIZKAoK &p)
-  : H_ (E, p.H_), c_(p.c_), t1_(p.t1_), t2_(p.t2_)
+  : H_ (E, p.H_), t1_(p.t1_), t2_(p.t2_)
 {
 }
 
@@ -278,20 +274,20 @@ bool ECNIZKAoK::verify (const OpenSSL::ECGroup &E, OpenSSL::HashAlgo &H,
                         const OpenSSL::ECPoint & R, const PublicValue &V,
                         const PublicValue &A) const
 {
-  OpenSSL::BN c;
-  c = hash_for_challenge (H, E, R, V, A, H_); /* c = Hash(R, V, A, H) */
+  /* c = Hash(E, R, V, A, H) */
+  OpenSSL::BN c (hash_for_challenge (H, E, R, V, A, H_));
 
   OpenSSL::ECPoint lhs (E);
   OpenSSL::ECPoint rhs (E);
 
   E.scal_mul (lhs, t2_, t1_, R); /* t1 R + t2 P */
 
-  E.scal_mul (rhs, c_, A);
+  E.scal_mul (rhs, c, A);
   E.ec_add (rhs, V, rhs);
-  E.scal_mul (rhs, c_, rhs);
+  E.scal_mul (rhs, c, rhs);
   E.ec_add (rhs, rhs, H_); /* c V + c^2 A + H */
 
-  return c == c_ && E.ec_point_eq (lhs, rhs);
+  return E.ec_point_eq (lhs, rhs);
 }
 
 /* */
