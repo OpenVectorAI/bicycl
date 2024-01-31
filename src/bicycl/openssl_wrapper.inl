@@ -48,7 +48,6 @@ HashAlgo::HashAlgo (int nid) : md_(EVP_get_digestbynid (nid)),
 {
   if (md_ == NULL)
     throw std::runtime_error ("could not set EVP from nid in HashAlgo");
-  digest_init ();
 }
 
 /* */
@@ -100,71 +99,78 @@ HashAlgo & HashAlgo::operator= (HashAlgo &&H)
 }
 
 /* */
+template <typename... Args>
 inline
-void HashAlgo::digest_init () const
+HashAlgo::Digest HashAlgo::operator() (const Args & ...args)
 {
   int ret = EVP_DigestInit_ex (mdctx_, md_, NULL);
   if (ret != 1)
     throw std::runtime_error ("EVP_DigestInit_ex failed in HashAlgo");
-}
 
-/* */
-inline
-HashAlgo & operator<< (HashAlgo &H, std::tuple<const void *, size_t> d)
-{
-  int ret = EVP_DigestUpdate (H.mdctx_, std::get<0>(d), std::get<1>(d));
-  if (ret != 1)
-    throw std::runtime_error ("EVP_DigestUpdate failed in Hash::operator<<");
-  return H;
-}
+  hash_update (args...);
 
-/* */
-inline
-HashAlgo & operator<< (HashAlgo &H, const std::vector<unsigned char> &m)
-{
-  H << std::make_tuple<const void *, size_t>(m.data(),
-                                             m.size() * sizeof(unsigned char));
-  return H;
-}
-
-/* */
-inline
-HashAlgo & operator<< (HashAlgo &H, const Mpz &v)
-{
-  mpz_srcptr vptr = static_cast<mpz_srcptr> (v);
-  int s = v.sgn();
-  H << std::make_tuple<const void *, size_t>(&s, sizeof(int))
-    << std::make_tuple<const void *, size_t>(mpz_limbs_read (vptr),
-                                             v.nlimbs() * sizeof (mp_limb_t));
-  return H;
-}
-
-/* */
-inline
-HashAlgo::Digest HashAlgo::digest ()
-{
-  Digest h (EVP_MD_size (md_));
-
-  int ret = EVP_DigestFinal_ex (mdctx_, h.data(), NULL);
+  Digest h (digest_nbytes ());
+  ret = EVP_DigestFinal_ex (mdctx_, h.data(), NULL);
   if (ret != 1)
     throw std::runtime_error ("EVP_DigestFinal_ex failed in HashAlgo");
-
-  digest_init ();
   return h;
 }
 
 /* */
+template <typename First, typename... Args>
 inline
-HashAlgo::Digest HashAlgo::digest (size_t digest_size)
+void HashAlgo::hash_update (const First & first, const Args & ...args)
 {
-  Digest h (digest_size);
+  hash (first);
+  hash_update (args...);
+}
 
-  int ret = EVP_DigestFinalXOF (mdctx_, h.data(), h.size());
+/* */
+inline
+void HashAlgo::hash_update ()
+{
+}
+
+/* */
+inline
+void HashAlgo::hash_bytes (const void *ptr, size_t n)
+{
+  int ret = EVP_DigestUpdate (mdctx_, ptr, n);
   if (ret != 1)
-    throw std::runtime_error ("EVP_DigestFinalXOF failed in HashAlgo");
+    throw std::runtime_error ("EVP_DigestUpdate failed in hash_bytes");
+}
 
-  digest_init ();
-  return h;
+/* */
+template <>
+inline
+void HashAlgo::hash (const int &v)
+{
+  hash_bytes (&v, sizeof (v));
+}
+
+template <>
+inline
+void HashAlgo::hash (const unsigned int &v)
+{
+  hash_bytes (&v, sizeof (v));
+}
+
+/* */
+template <>
+inline
+void HashAlgo::hash (const std::vector<unsigned char> &m)
+{
+  hash_bytes (m.data(), m.size() * sizeof(unsigned char));
+}
+
+/* */
+template <>
+inline
+void HashAlgo::hash (const Mpz &v)
+{
+  mpz_srcptr vptr = static_cast<mpz_srcptr> (v);
+  hash (v.sgn());
+  hash_bytes (mpz_limbs_read (vptr), v.nlimbs()*sizeof(mp_limb_t));
 }
 
 /* */
@@ -386,13 +392,13 @@ std::vector<unsigned char> BN::BIGNUM_abs_to_bytes (const BIGNUM *v)
   return r;
 }
 
-/* */
+template <>
 inline
-HashAlgo & operator<< (HashAlgo &H, const BN &v)
+void HashAlgo::hash (const BN &v)
 {
   std::vector<unsigned char> b (BN::BIGNUM_abs_to_bytes (v.bn_));
-  int is_neg = BN_is_negative (v.bn_);
-  return H << b << std::make_tuple<const void *, size_t>(&is_neg, sizeof(int));
+  hash (BN_is_negative (v.bn_));
+  hash (b);
 }
 
 /****************************************************************************/
@@ -773,8 +779,7 @@ std::ostream & operator<< (std::ostream &o, const ECGroup &E)
 
 /* */
 inline
-std::ostream & operator<< (std::ostream &o,
-                           std::tuple<const ECPoint &, const ECGroup &> pt)
+std::ostream & operator<< (std::ostream &o, const ECPointGroupCRefPair &pt)
 {
   const ECPoint & P = std::get<0> (pt);
   const ECGroup & E = std::get<1> (pt);
@@ -784,22 +789,27 @@ std::ostream & operator<< (std::ostream &o,
 }
 
 /* */
+template<>
 inline
-HashAlgo & operator<< (HashAlgo &H, std::tuple<const ECPoint &, const ECGroup &> pt)
+void HashAlgo::hash (const ECPointGroupCRefPair &pt)
 {
   const ECPoint & P = std::get<0> (pt);
   const ECGroup & E = std::get<1> (pt);
   std::vector<unsigned char> bin (E.ECPoint_to_bytes (P));
-  return H << bin;
+  hash (bin);
 }
 
 /* */
+template<>
 inline
-HashAlgo & operator<< (HashAlgo &H, const ECGroup &E)
+void HashAlgo::hash (const ECGroup &E)
 {
   const EC_POINT *gen = EC_GROUP_get0_generator (E.ec_group_);
   std::vector<unsigned char> gen_bytes (E.EC_POINT_to_bytes (gen));
-  return H << E.a() << E.b() << E.p() << gen_bytes;
+  hash (E.a());
+  hash (E.b());
+  hash (E.p());
+  hash (gen_bytes);
 }
 
 #endif /* OPENSSL_WRAPPER_INL__ */

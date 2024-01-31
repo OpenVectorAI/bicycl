@@ -893,19 +893,20 @@ CL_HSMqk::Genus CL_HSMqk::genus (const QFI &f) const
 }
 
 /* */
+template <>
 inline
-OpenSSL::HashAlgo & operator<< (OpenSSL::HashAlgo &H,
-                                const CL_HSMqk::PublicKey &k)
+void OpenSSL::HashAlgo::hash (const CL_HSMqk::PublicKey &k)
 {
-  return H << k.elt();
+  hash (k.elt());
 }
 
 /* */
+template <>
 inline
-OpenSSL::HashAlgo & operator<< (OpenSSL::HashAlgo &H,
-                                const CL_HSMqk::CipherText &c)
+void OpenSSL::HashAlgo::hash (const CL_HSMqk::CipherText &c)
 {
-  return H << c.c1() << c.c2();
+  hash (c.c1());
+  hash (c.c2());
 }
 
 /******************************************************************************/
@@ -1024,8 +1025,7 @@ Mpz CL_HSMqk_ZKAoKProof::k_from_hash (OpenSSL::HashAlgo &H,
                                       const CL_HSMqk::CipherText &c,
                                       const QFI &t1, const QFI &t2) const
 {
-  H << pk << c << t1 << t2;
-  return Mpz (H.digest ());
+  return Mpz (H (pk, c, t1, t2));
 }
 
 #endif /* CL_HSM_INL__ */

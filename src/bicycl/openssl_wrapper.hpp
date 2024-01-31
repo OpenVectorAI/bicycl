@@ -72,19 +72,23 @@ namespace BICYCL
         HashAlgo & operator= (HashAlgo &&H);
 
         /* */
-        Digest digest ();
-        Digest digest (size_t digest_size);
+        template <typename... Args>
+        Digest operator() (const Args & ...args);
+
+        template <typename T>
+        void hash (const T &t);
 
         /* */
         int digest_nbytes () const;
         int digest_nbits () const;
 
-        friend HashAlgo & operator<< (HashAlgo &H, std::tuple<const void *, size_t> d);
-      protected:
-        void digest_init () const;
-
       private:
         static EVP_MD_CTX * new_ctx_ ();
+
+        void hash_update ();
+        template <typename First, typename... Args>
+        void hash_update (const First & first, const Args & ...args);
+        void hash_bytes (const void *ptr, size_t n);
 
         const EVP_MD *md_;
         EVP_MD_CTX *mdctx_;
@@ -135,7 +139,7 @@ namespace BICYCL
         /* */
         friend std::ostream & operator<< (std::ostream &o, const BN &v);
         friend void random_BN_2exp (const BN &r, int nbits);
-        friend HashAlgo & operator<< (HashAlgo &H, const BN &v);
+        friend void HashAlgo::hash<> (const BN &v);
 
       private:
         static std::vector<unsigned char> BIGNUM_abs_to_bytes (const BIGNUM *v);
@@ -166,6 +170,9 @@ namespace BICYCL
       private:
         EC_POINT *P_;
     }; /* ECPoint */
+
+    /****/
+    using ECPointGroupCRefPair = std::tuple<const ECPoint &, const ECGroup &>;
 
     /****/
     class ECGroup
@@ -229,10 +236,9 @@ namespace BICYCL
 
         friend std::ostream & operator<< (std::ostream &o, const ECGroup &E);
         friend std::ostream & operator<< (std::ostream &o,
-                              std::tuple<const ECPoint &, const ECGroup &> pt);
-        friend HashAlgo & operator<< (HashAlgo &H, const ECGroup &E);
-        friend HashAlgo & operator<< (HashAlgo &H,
-                              std::tuple<const ECPoint &, const ECGroup &> pt);
+                                          const ECPointGroupCRefPair &pt);
+        friend void HashAlgo::hash<> (const ECGroup &E);
+        friend void HashAlgo::hash<> (const ECPointGroupCRefPair &pt);
 
       private:
         const BIGNUM * get_order() const;

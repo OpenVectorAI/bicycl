@@ -1276,10 +1276,13 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
 #undef NUCOMP
 
 /* */
+template<>
 inline
-OpenSSL::HashAlgo & operator<< (OpenSSL::HashAlgo &H, const QFI &f)
+void OpenSSL::HashAlgo::hash (const QFI &f)
 {
-  return H << f.a() << f.b() << f.c();
+  hash (f.a());
+  hash (f.b());
+  hash (f.c());
 }
 
 /******************************************************************************/

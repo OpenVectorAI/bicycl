@@ -68,8 +68,7 @@ ECDSA::PublicKey ECDSA::keygen (const SecretKey &sk) const
 inline
 OpenSSL::BN ECDSA::hash_message (const Message &m) const
 {
-  H_ << m;
-  return OpenSSL::BN (H_.digest());
+  return OpenSSL::BN (H_ (m));
 }
 
 /* */
@@ -226,11 +225,8 @@ OpenSSL::BN ECNIZKProof::hash_for_challenge (OpenSSL::HashAlgo & H,
                                              const OpenSSL::ECPoint &R,
                                              const OpenSSL::ECPoint &Q)
 {
-  H << E
-    << std::make_tuple (std::ref(R), std::ref(E))
-    << std::make_tuple (std::ref(Q), std::ref(E));
-
-  return OpenSSL::BN (H.digest ());
+  return OpenSSL::BN (H (E, OpenSSL::ECPointGroupCRefPair (R, E),
+                            OpenSSL::ECPointGroupCRefPair (Q, E)));
 }
 
 /* */
@@ -307,13 +303,10 @@ OpenSSL::BN ECNIZKAoK::hash_for_challenge (OpenSSL::HashAlgo &Hash,
                                            const OpenSSL::ECPoint &A,
                                            const OpenSSL::ECPoint &H)
 {
-  Hash << E
-       << std::make_tuple (std::ref(R), std::ref(E))
-       << std::make_tuple (std::ref(V), std::ref(E))
-       << std::make_tuple (std::ref(A), std::ref(E))
-       << std::make_tuple (std::ref(H), std::ref(E));
-
-  return OpenSSL::BN (Hash.digest ());
+  return OpenSSL::BN (Hash (E, OpenSSL::ECPointGroupCRefPair (R, E),
+                               OpenSSL::ECPointGroupCRefPair (V, E),
+                               OpenSSL::ECPointGroupCRefPair (A, E),
+                               OpenSSL::ECPointGroupCRefPair (H, E)));
 }
 
 #endif /* EC_INL__ */

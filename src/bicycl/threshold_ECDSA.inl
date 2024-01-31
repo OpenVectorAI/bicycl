@@ -1069,9 +1069,8 @@ thresholdECDSA::commit (const OpenSSL::ECPoint &Q) const
   size_t nbytes = static_cast<unsigned int>(seclevel_) >> 3; /* = seclevel/8 */
   CommitmentSecret r(nbytes);
   OpenSSL::random_bytes (r.data(), nbytes);
-  H_ << const_cast<const CommitmentSecret &>(r)
-     << std::make_tuple (std::ref(Q), std::ref(ec_group_));
-  return std::make_tuple(H_.digest(), r);
+  return std::make_tuple (H_ (r, OpenSSL::ECPointGroupCRefPair (Q, ec_group_)),
+                          r);
 }
 
 /* */
@@ -1083,10 +1082,9 @@ thresholdECDSA::commit (const OpenSSL::ECPoint &Q1,
   size_t nbytes = static_cast<unsigned int>(seclevel_) >> 3; /* = seclevel/8 */
   CommitmentSecret r(nbytes);
   OpenSSL::random_bytes (r.data(), nbytes);
-  H_ << const_cast<const CommitmentSecret &>(r)
-     << std::make_tuple (std::ref(Q1), std::ref(ec_group_))
-     << std::make_tuple (std::ref(Q2), std::ref(ec_group_));
-  return std::make_tuple(H_.digest(), r);
+  return std::make_tuple (H_ (r, OpenSSL::ECPointGroupCRefPair (Q1, ec_group_),
+                                 OpenSSL::ECPointGroupCRefPair (Q2, ec_group_)),
+                          r);
 }
 
 /* */
@@ -1094,8 +1092,7 @@ inline
 bool thresholdECDSA::open (const Commitment &c, const OpenSSL::ECPoint &Q,
                                                 const CommitmentSecret &r) const
 {
-  H_ << r << std::make_tuple (std::ref(Q), std::ref(ec_group_));
-  Commitment c2 (H_.digest ());
+  Commitment c2 (H_ (r, OpenSSL::ECPointGroupCRefPair (Q, ec_group_)));
   return c == c2;
 }
 
@@ -1105,9 +1102,8 @@ bool thresholdECDSA::open (const Commitment &c, const OpenSSL::ECPoint &Q1,
                                                 const OpenSSL::ECPoint &Q2,
                                                 const CommitmentSecret &r) const
 {
-  H_ << r << std::make_tuple (std::ref(Q1), std::ref(ec_group_))
-          << std::make_tuple (std::ref(Q2), std::ref(ec_group_));
-  Commitment c2 (H_.digest ());
+  Commitment c2 (H_ (r, OpenSSL::ECPointGroupCRefPair (Q1, ec_group_),
+                        OpenSSL::ECPointGroupCRefPair (Q2, ec_group_)));
   return c == c2;
 }
 
@@ -1185,8 +1181,7 @@ OpenSSL::BN thresholdECDSA::lagrange_at_zero (const ParticipantsList &S,
 inline
 OpenSSL::BN thresholdECDSA::hash_message (const Message &m) const
 {
-  H_ << m;
-  return OpenSSL::BN (H_.digest());
+  return OpenSSL::BN (H_ (m));
 }
 
 #endif /* THRESHOLD_ECDSA_INL__ */
