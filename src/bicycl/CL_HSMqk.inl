@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef CL_HSM_INL__
-#define CL_HSM_INL__
+#ifndef BICYCL_CL_HSMQK_INL
+#define BICYCL_CL_HSMQK_INL
 
 /**
  * The product \f$ p \times q \f$ must be \f$ 3 \bmod 4 \f$
@@ -1028,4 +1028,4 @@ Mpz CL_HSMqk_ZKAoKProof::k_from_hash (OpenSSL::HashAlgo &H,
   return Mpz (H (pk, c, t1, t2));
 }
 
-#endif /* CL_HSM_INL__ */
+#endif /* BICYCL_CL_HSMQK_INL */

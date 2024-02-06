@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef THRESHOLD_ECDSA_INL__
-#define THRESHOLD_ECDSA_INL__
+#ifndef BICYCL_THRESHOLD_ECDSA_INL
+#define BICYCL_THRESHOLD_ECDSA_INL
 
 /******************************************************************************/
 class thresholdECDSA::ProtocolAbortError : public std::runtime_error
@@ -1184,4 +1184,4 @@ OpenSSL::BN thresholdECDSA::hash_message (const Message &m) const
   return OpenSSL::BN (H_ (m));
 }
 
-#endif /* THRESHOLD_ECDSA_INL__ */
+#endif /* BICYCL_THRESHOLD_ECDSA_INL */

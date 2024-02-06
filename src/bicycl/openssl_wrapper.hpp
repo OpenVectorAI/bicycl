@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef OPENSSL_WRAPPER_HPP__
-#define OPENSSL_WRAPPER_HPP__
+#ifndef BICYCL_OPENSSL_WRAPPER_HPP
+#define BICYCL_OPENSSL_WRAPPER_HPP
 
 #include <iostream>
 #include <stdexcept>
@@ -259,4 +259,4 @@ namespace BICYCL
 
 } /* namespace BICYCL */
 
-#endif /* OPENSSL_WRAPPER_HPP__ */
+#endif /* BICYCL_OPENSSL_WRAPPER_HPP */

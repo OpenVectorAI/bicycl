@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef JOYE_LIBERT_INL__
-#define JOYE_LIBERT_INL__
+#ifndef BICYCL_JOYE_LIBERT_INL
+#define BICYCL_JOYE_LIBERT_INL
 
 /*
  */
@@ -253,4 +253,4 @@ const Mpz & JoyeLibert::cleartext_bound () const
 {
   return twotothek_;
 }
-#endif /* JOYE_LIBERT_INL__ */
+#endif /* BICYCL_JOYE_LIBERT_INL */

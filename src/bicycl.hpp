@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef BICYCL_HPP__
-#define BICYCL_HPP__
+#ifndef BICYCL_BICYCL_HPP
+#define BICYCL_BICYCL_HPP
 
 #ifndef BICYCL_GMP_PRIMALITY_TESTS_ITERATION
 #define BICYCL_GMP_PRIMALITY_TESTS_ITERATION 30
@@ -41,4 +41,4 @@ namespace BICYCL
   #include "bicycl/seclevel.inl"
 } /* namespace BICYCL */
 
-#endif /* BICYCL_HPP__ */
+#endif /* BICYCL_BICYCL_HPP */

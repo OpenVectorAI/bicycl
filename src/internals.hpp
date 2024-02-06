@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef INTERNALS_HPP__
-#define INTERNALS_HPP__
+#ifndef BICYCL_INTERNALS_HPP
+#define BICYCL_INTERNALS_HPP
 
 #include <iostream>
 #include <iomanip>
@@ -283,4 +283,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* INTERNALS_HPP__ */
+#endif /* BICYCL_INTERNALS_HPP */

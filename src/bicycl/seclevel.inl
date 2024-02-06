@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef SECLEVEL_INL__
-#define SECLEVEL_INL__
+#ifndef BICYCL_SECLEVEL_INL
+#define BICYCL_SECLEVEL_INL
 
 /* */
 inline
@@ -118,4 +118,4 @@ std::string to_string (SecLevel seclevel)
   return std::to_string (static_cast<unsigned int>(seclevel.value_));
 }
 
-#endif /* SECLEVEL_INL__ */
+#endif /* BICYCL_SECLEVEL_INL */

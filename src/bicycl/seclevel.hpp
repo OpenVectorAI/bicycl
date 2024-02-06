@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef SECLEVEL_HPP__
-#define SECLEVEL_HPP__
+#ifndef BICYCL_SECLEVEL_HPP
+#define BICYCL_SECLEVEL_HPP
 
 #include <iostream>
 #include <stdexcept>
@@ -79,4 +79,4 @@ namespace BICYCL
 } /* BICYCL namespace */
 
 
-#endif /* SECLEVEL_HPP__ */
+#endif /* BICYCL_SECLEVEL_HPP */

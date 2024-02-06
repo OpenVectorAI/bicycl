@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef OPENSSL_WRAPPER_INL__
-#define OPENSSL_WRAPPER_INL__
+#ifndef BICYCL_OPENSSL_WRAPPER_INL
+#define BICYCL_OPENSSL_WRAPPER_INL
 
 /******************************************************************************/
 inline
@@ -835,4 +835,4 @@ void HashAlgo::hash (const ECGroup &E)
   hash (gen_bytes);
 }
 
-#endif /* OPENSSL_WRAPPER_INL__ */
+#endif /* BICYCL_OPENSSL_WRAPPER_INL */

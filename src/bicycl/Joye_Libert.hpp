@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef JOYE_LIBERT_HPP__
-#define JOYE_LIBERT_HPP__
+#ifndef BICYCL_JOYE_LIBERT_HPP
+#define BICYCL_JOYE_LIBERT_HPP
 
 #include <iostream>
 
@@ -124,4 +124,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* JOYE_LIBERT_HPP__ */
+#endif /* BICYCL_JOYE_LIBERT_HPP */

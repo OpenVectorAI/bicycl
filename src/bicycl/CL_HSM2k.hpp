@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef CL_HSM2K_HPP__
-#define CL_HSM2K_HPP__
+#ifndef BICYCL_CL_HSM2K_HPP
+#define BICYCL_CL_HSM2K_HPP
 
 #include <iostream>
 
@@ -258,4 +258,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* CL_HSM2K_HPP__ */
+#endif /* BICYCL_CL_HSM2K_HPP */

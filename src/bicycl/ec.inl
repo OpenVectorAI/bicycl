@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef EC_INL__
-#define EC_INL__
+#ifndef BICYCL_EC_INL
+#define BICYCL_EC_INL
 
 /******************************************************************************/
 /* */
@@ -305,4 +305,4 @@ OpenSSL::BN ECNIZKAoK::hash_for_challenge (OpenSSL::HashAlgo &Hash,
                                OpenSSL::ECPointGroupCRefPair (H, E)));
 }
 
-#endif /* EC_INL__ */
+#endif /* BICYCL_EC_INL */

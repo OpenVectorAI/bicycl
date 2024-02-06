@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef QFI_INL__
-#define QFI_INL__
+#ifndef BICYCL_QFI_INL
+#define BICYCL_QFI_INL
 
 /* */
 inline
@@ -1515,4 +1515,4 @@ void ClassGroup::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
   QFI::nupow (r, f, n, d, e, fe, fd, fed, default_nucomp_bound());
 }
 
-#endif /* QFI_INL__ */
+#endif /* BICYCL_QFI_INL */

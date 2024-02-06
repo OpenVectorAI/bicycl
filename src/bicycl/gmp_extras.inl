@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef GMP_EXTRAS_INL__
-#define GMP_EXTRAS_INL__
+#ifndef BICYCL_GMP_EXTRAS_INL
+#define BICYCL_GMP_EXTRAS_INL
 
 /*
  * GMP internal macros copied from gmp-impl.h.
@@ -1654,4 +1654,4 @@ void JSF::set (size_t i, int d0, int d1)
 #undef mpn_binvert_itch
 #undef mpn_redc_n
 
-#endif /* GMP_EXTRAS_INL__ */
+#endif /* BICYCL_GMP_EXTRAS_INL */

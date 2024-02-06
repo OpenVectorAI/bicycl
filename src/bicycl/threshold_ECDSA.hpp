@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef THRESHOLD_ECDSA_HPP__
-#define THRESHOLD_ECDSA_HPP__
+#ifndef BICYCL_THRESHOLD_ECDSA_HPP
+#define BICYCL_THRESHOLD_ECDSA_HPP
 
 #include <iostream>
 #include <stdexcept>
@@ -388,4 +388,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* THRESHOLD_ECDSA_HPP__ */
+#endif /* BICYCL_THRESHOLD_ECDSA_HPP */

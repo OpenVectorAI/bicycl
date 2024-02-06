@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef EC_HPP__
-#define EC_HPP__
+#ifndef BICYCL_EC_HPP
+#define BICYCL_EC_HPP
 
 #include <functional>
 #include <tuple>
@@ -150,4 +150,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* EC_HPP__ */
+#endif /* BICYCL_EC_HPP */

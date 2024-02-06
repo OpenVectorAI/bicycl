@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef PAILLIER_HPP__
-#define PAILLIER_HPP__
+#ifndef BICYCL_PAILLIER_HPP
+#define BICYCL_PAILLIER_HPP
 
 #include <iostream>
 
@@ -217,4 +217,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* PAILLIER_HPP__ */
+#endif /* BICYCL_PAILLIER_HPP */

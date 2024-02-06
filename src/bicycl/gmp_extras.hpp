@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef GMP_EXTRAS_HPP__
-#define GMP_EXTRAS_HPP__
+#ifndef BICYCL_GMP_EXTRAS_HPP
+#define BICYCL_GMP_EXTRAS_HPP
 
 #include <gmp.h>
 
@@ -284,4 +284,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* GMP_EXTRAS_HPP__ */
+#endif /* BICYCL_GMP_EXTRAS_HPP */

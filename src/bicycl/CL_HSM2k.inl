@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef CL_HSM2K_INL__
-#define CL_HSM2K_INL__
+#ifndef BICYCL_CL_HSM2K_INL
+#define BICYCL_CL_HSM2K_INL
 
 /**
  * \param[in] q the prime q
@@ -686,4 +686,4 @@ void CL_HSM2k::F_kerphi_div (Mpz &t, const Mpz &s, Mpz &aux0, Mpz &aux1,
   Mpz::mod2k (t, t, k_);                      /* t <- (t-s)*aux0^(-1) mod 2^k */
 }
 
-#endif /* CL_HSM2K_INL__ */
+#endif /* BICYCL_CL_HSM2K_INL */

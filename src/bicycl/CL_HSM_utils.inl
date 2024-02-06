@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef CL_HSM_UTILS_INL__
-#define CL_HSM_UTILS_INL__
+#ifndef BICYCL_CL_HSM_UTILS_INL
+#define BICYCL_CL_HSM_UTILS_INL
 
 /* */
 template <class Cryptosystem>
@@ -256,4 +256,4 @@ const QFI & CL_HSM_CipherText<Cryptosystem>::c2 () const
   return c2_;
 }
 
-#endif /* CL_HSM_UTILS_INL__ */
+#endif /* BICYCL_CL_HSM_UTILS_INL */

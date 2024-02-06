@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef QFI_HPP__
-#define QFI_HPP__
+#ifndef BICYCL_QFI_HPP
+#define BICYCL_QFI_HPP
 
 #include <iostream>
 #include <cstddef>
@@ -200,4 +200,4 @@ namespace BICYCL
 
 } /* BICYCL namespace */
 
-#endif /* QFI_HPP__ */
+#endif /* BICYCL_QFI_HPP */

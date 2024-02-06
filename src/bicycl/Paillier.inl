@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef PAILLIER_INL__
-#define PAILLIER_INL__
+#ifndef BICYCL_PAILLIER_INL
+#define BICYCL_PAILLIER_INL
 
 /*
  */
@@ -485,4 +485,4 @@ Mpz CamenischShoup::random_r (RandGen &randgen, const Mpz &N)
   return r;
 }
 
-#endif /* PAILLIER_INL__ */
+#endif /* BICYCL_PAILLIER_INL */
