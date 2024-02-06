@@ -99,6 +99,13 @@ namespace BICYCL
       /* I/O */
       friend std::ostream & operator<< (std::ostream &, const QFI &);
 
+      /* */
+      struct OpsAuxVars
+      {
+        Mpz Ax, Ay, Bx, By, Cx, Cy, Dx, Dy, m00, m01, m10, m11, t0, t1,
+            m, s,  F, u, v, x, y, H, l, q, by;
+      };
+
     protected:
       void set_c_from_disc (const Mpz &disc);
 
@@ -118,13 +125,9 @@ namespace BICYCL
       static void nucomp (QFI &, const QFI &, const QFI &, const Mpz &,
                           bool negf2);
       static void nucomp (QFI &, const QFI &, const QFI &, const Mpz &,
-                          bool negf2, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &,
-                          Mpz &, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &,
-                          Mpz &, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &,
-                          Mpz &, Mpz &, Mpz &, Mpz &, Mpz &);
+                          bool negf2, OpsAuxVars &);
       static void nudupl (QFI &, const QFI &, const Mpz &);
-      static void nudupl (QFI &, const QFI &, const Mpz &, Mpz &, Mpz &,
-                          Mpz &, Mpz &, Mpz &, Mpz &, Mpz &, Mpz &);
+      static void nudupl (QFI &, const QFI &, const Mpz &, OpsAuxVars &);
       static void nupow (QFI &, const QFI &, const Mpz &, const Mpz &) ;
       static void nupow (QFI &, const QFI &, const Mpz &, const QFI &,
                           const Mpz &, const Mpz &);

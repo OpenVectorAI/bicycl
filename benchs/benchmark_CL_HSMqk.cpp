@@ -45,8 +45,7 @@ void CL_HSMqk_benchs_ops (const Cryptosystem &C, RandGen &randgen,
 {
   size_t niter = 100000;
 
-  Mpz t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13,
-      t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24;
+  QFI::OpsAuxVars tmp;
 
   QFI r, r2, f;
 
@@ -61,10 +60,9 @@ void CL_HSMqk_benchs_ops (const Cryptosystem &C, RandGen &randgen,
   Bench::one_function<ms, us> (nudupl, niter, "nudupl", pre);
 
   /* nudupl with temporaries */
-  auto nudupl_tmp = [ &r, &f, &bound, &t0, &t1, &t2, &t3, &t4, &t5, &t6, &t7
-                      ] ()
+  auto nudupl_tmp = [ &r, &f, &bound, &tmp ] ()
   {
-    BenchQFI::nudupl (r, f, bound, t0, t1, t2, t3, t4, t5, t6, t7);
+    BenchQFI::nudupl (r, f, bound, tmp);
   };
   Bench::one_function<ms, us> (nudupl_tmp, niter, "nudupl w/ tmps", pre);
 
@@ -76,14 +74,9 @@ void CL_HSMqk_benchs_ops (const Cryptosystem &C, RandGen &randgen,
   Bench::one_function<ms, us> (nucomp, niter, "nucomp", pre);
 
   /* nucomp using temporaries */
-  auto nucomp_tmp = [ &r2, &f, &r, &bound, &t0, &t1, &t2, &t3, &t4, &t5,
-                      &t6, &t7, &t8, &t9, &t10, &t11, &t12, &t13, &t14,
-                      &t15, &t16, &t17, &t18, &t19, &t20, &t21, &t22, &t23,
-                      &t24 ] ()
+  auto nucomp_tmp = [ &r2, &f, &r, &bound, &tmp ] ()
   {
-    BenchQFI::nucomp (r2, f, r, bound, 0, t0, t1, t2, t3, t4, t5, t6, t7,
-                                  t8, t9, t10, t11, t12, t13, t14, t15, t16,
-                                  t17, t18, t19, t20, t21, t22, t23, t24);
+    BenchQFI::nucomp (r2, f, r, bound, 0, tmp);
   };
   Bench::one_function<ms, us> (nucomp_tmp, niter, "nucomp w/ tmps", pre);
 

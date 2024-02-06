@@ -681,12 +681,8 @@ static uint64_t _nucomp_ncalls, _nudupl_ncalls;
  * TODO: reduce the number of scratch variables
  */
 inline
-void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
-                     const Mpz &L, bool negf2, Mpz &Ax, Mpz &Ay, Mpz &Bx,
-                     Mpz &By, Mpz &Cx, Mpz &Cy, Mpz &Dx, Mpz &Dy, Mpz &m,
-                     Mpz &s, Mpz &F, Mpz &u, Mpz &v, Mpz &x, Mpz &y, Mpz &H,
-                     Mpz &t0, Mpz &t1, Mpz &l, Mpz &q, Mpz &by, Mpz &m00,
-                     Mpz &m01, Mpz &m10, Mpz &m11)
+void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2, const Mpz &L,
+                  bool negf2, OpsAuxVars &tmp)
 {
 #ifdef BICYCL_WITH_COUNTS
   _nucomp_ncalls++;
@@ -696,138 +692,125 @@ void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
 #endif
   mp_size_t Lsize = L.nlimbs(); /* depending on log2(L) may need to do -1 */
 
-  Mpz::add (s, f1.b_, f2.b_);
-  Mpz::divby2 (s, s);
-  Mpz::sub (m, f2.b_, s);
+  Mpz::add (tmp.s, f1.b_, f2.b_);
+  Mpz::divby2 (tmp.s, tmp.s);
+  Mpz::sub (tmp.m, f2.b_, tmp.s);
 
   if (negf2)
   {
-    Mpz::swap (s, m);
-    s.neg();
-    m.neg();
+    Mpz::swap (tmp.s, tmp.m);
+    tmp.s.neg();
+    tmp.m.neg();
   }
 
   /* F = gcd (a1, a2) = u*a1 + v*a2 */
 #ifdef BICYCL_WITH_TIMINGS
   _time = get_realtime_ns();
 #endif
-  Mpz::gcdext (F, u, v, f1.a_, f2.a_);
+  Mpz::gcdext (tmp.F, tmp.u, tmp.v, f1.a_, f2.a_);
 #ifdef BICYCL_WITH_TIMINGS
   _nucomp_tgcdext += get_realtime_ns() - _time;
 #endif
-  if (F.is_one())
+  if (tmp.F.is_one())
   {
-    Ax = 1UL;
-    Mpz::mul (Bx, m, v); /* Bx = m*v */
-    By = f1.a_;
-    //Mpz::mul (Cx, m, u);
-    //mpz_neg_inplace (Cx); /* Cx = -m*u */
-    //Mpz::mul (Dx, v, f1.c_);
-    //Mpz::addmul (Dx, u, f2.c_);
-    //mpz_neg_inplace (Dx); /* Dx = -(v*c1+u*c2) */
+    tmp.Ax = 1UL;
+    Mpz::mul (tmp.Bx, tmp.m, tmp.v); /* Bx = m*v */
+    tmp.By = f1.a_;
   }
-  else if (s.is_divisible_by (F))
+  else if (tmp.s.is_divisible_by (tmp.F))
   {
-    Ax = F;
-    Mpz::mul (Bx, m, v); /* Bx = m*v */
-    Mpz::divexact (By, f1.a_, Ax);
-    //Mpz::mul (Cx, m, u);
-    //mpz_neg_inplace (Cx); /* Cx = -m*u */
-    //Mpz::mul (Dx, v, f1.c_);
-    //Mpz::addmul (Dx, u, f2.c_);
-    //mpz_neg_inplace (Dx); /* Dx = -(v*c1+u*c2) */
+    tmp.Ax = tmp.F;
+    Mpz::mul (tmp.Bx, tmp.m, tmp.v); /* Bx = m*v */
+    Mpz::divexact (tmp.By, f1.a_, tmp.Ax);
   }
   else
   {
-    Mpz::gcdext (Ax, x, y, F, s);
-    Mpz::divexact (H, F, Ax);
-    Mpz::mod (t0, f1.c_, H);
-    Mpz::mod (t1, f2.c_, H);
-    Mpz::mul (t0, t0, v);
-    Mpz::addmul (t0, t1, u);
-    Mpz::mod (t0, t0, H);
-    Mpz::mul (t0, t0, y);
-    Mpz::mod (l, t0, H);
+    Mpz::gcdext (tmp.Ax, tmp.x, tmp.y, tmp.F, tmp.s);
+    Mpz::divexact (tmp.H, tmp.F, tmp.Ax);
+    Mpz::mod (tmp.t0, f1.c_, tmp.H);
+    Mpz::mod (tmp.t1, f2.c_, tmp.H);
+    Mpz::mul (tmp.t0, tmp.t0, tmp.v);
+    Mpz::addmul (tmp.t0, tmp.t1, tmp.u);
+    Mpz::mod (tmp.t0, tmp.t0, tmp.H);
+    Mpz::mul (tmp.t0, tmp.t0, tmp.y);
+    Mpz::mod (tmp.l, tmp.t0, tmp.H);
 
-    Mpz::divexact (By, f1.a_, Ax);
+    Mpz::divexact (tmp.By, f1.a_, tmp.Ax);
 
-    Mpz::mul (t0, v, m);
-    Mpz::addmul (t0, l, By);
-    Mpz::divexact (Bx, t0, H);
+    Mpz::mul (tmp.t0, tmp.v, tmp.m);
+    Mpz::addmul (tmp.t0, tmp.l, tmp.By);
+    Mpz::divexact (tmp.Bx, tmp.t0, tmp.H);
   }
-  Mpz::divexact (Cy, f2.a_, Ax);
-  Mpz::divexact (Dy, s, Ax);
+  Mpz::divexact (tmp.Cy, f2.a_, tmp.Ax);
+  Mpz::divexact (tmp.Dy, tmp.s, tmp.Ax);
 
   /* Set Bx to Bx mod By */
-  Mpz::fdiv_qr (q, Bx, Bx, By);
+  Mpz::fdiv_qr (tmp.q, tmp.Bx, tmp.Bx, tmp.By);
 
   /* Partially reduce Bx and By with Euclidean algorithm and compute
    * transformation matrix M.
    */
-  by = By;
+  tmp.by = tmp.By;
 #ifdef BICYCL_WITH_TIMINGS
   _time = get_realtime_ns();
 #endif
-  Mpz::partial_euclid (m00, m01, m10, m11, Bx, by, Lsize, t0, t1);
+  Mpz::partial_euclid (tmp.m00, tmp.m01, tmp.m10, tmp.m11, tmp.Bx, tmp.by,
+                       Lsize, tmp.t0, tmp.t1);
 #ifdef BICYCL_WITH_TIMINGS
   _nucomp_tpartial += get_realtime_ns() - _time;
 #endif
 
   /* new Ay */
-  Mpz::mul (Ay, m10, Ax);
-  Ay.neg ();
+  Mpz::mul (tmp.Ay, tmp.m10, tmp.Ax);
+  tmp.Ay.neg ();
 
   /* new Cx and Cy */
-  Mpz::mul (Cx, Bx, Cy);
-  Mpz::submul (Cx, m, m11);
-  Mpz::divexact (Cx, Cx, By);
-  //Mpz::mul (Cx, Cx, Ax);
-  //Mpz::divexact (Cx, Cx, f1.a_);
+  Mpz::mul (tmp.Cx, tmp.Bx, tmp.Cy);
+  Mpz::submul (tmp.Cx, tmp.m, tmp.m11);
+  Mpz::divexact (tmp.Cx, tmp.Cx, tmp.By);
 
-  if (Bx.is_zero ())
+  if (tmp.Bx.is_zero ())
   {
-    Mpz::mul (Cy, f2.a_, by);
-    Mpz::submul (Cy, Ay, m);
-    Mpz::divexact (Cy, Cy, f1.a_);
+    Mpz::mul (tmp.Cy, f2.a_, tmp.by);
+    Mpz::submul (tmp.Cy, tmp.Ay, tmp.m);
+    Mpz::divexact (tmp.Cy, tmp.Cy, f1.a_);
   }
   else
   {
-    Mpz::mul (Cy, Cx, by);
-    Mpz::add (Cy, Cy, m);
-    Mpz::divexact (Cy, Cy, Bx);
+    Mpz::mul (tmp.Cy, tmp.Cx, tmp.by);
+    Mpz::add (tmp.Cy, tmp.Cy, tmp.m);
+    Mpz::divexact (tmp.Cy, tmp.Cy, tmp.Bx);
   }
 
   /* new Dx and Dy */
-  Mpz::mul (Dx, Bx, Dy);
-  Mpz::submul (Dx, f2.c_, m11);
-  Mpz::divexact (Dx, Dx, By);
-  //Mpz::mul (Dx, Dx, Ax);
-  //Mpz::divexact (Dx, Dx, f1.a_);
+  Mpz::mul (tmp.Dx, tmp.Bx, tmp.Dy);
+  Mpz::submul (tmp.Dx, f2.c_, tmp.m11);
+  Mpz::divexact (tmp.Dx, tmp.Dx, tmp.By);
 
-  Mpz::submul (Dy, Dx, m10);
-  Mpz::divexact (Dy, Dy, m11);
+  Mpz::submul (tmp.Dy, tmp.Dx, tmp.m10);
+  Mpz::divexact (tmp.Dy, tmp.Dy, tmp.m11);
 
   /* new Ax */
-  Mpz::mul (Ax, m11, Ax);
+  Mpz::mul (tmp.Ax, tmp.m11, tmp.Ax);
 
   /* r.a_ = by*Cy - Ay*Dy */
-  Mpz::mul (r.a_, by, Cy);
-  Mpz::submul (r.a_, Ay, Dy);
+  Mpz::mul (r.a_, tmp.by, tmp.Cy);
+  Mpz::submul (r.a_, tmp.Ay, tmp.Dy);
 
   /* r.c_ = Bx*Cx - Ax*Dx */
-  Mpz::mul (r.c_, Bx, Cx);
-  Mpz::submul (r.c_, Ax, Dx);
+  Mpz::mul (r.c_, tmp.Bx, tmp.Cx);
+  Mpz::submul (r.c_, tmp.Ax, tmp.Dx);
 
   /* r.b_ = (Ax*Dy+Ay*Dx) - (Bx*Cy + by*Cx) */
-  Mpz::mul (r.b_, Ax, Dy);
-  Mpz::addmul (r.b_, Ay, Dx);
-  Mpz::submul (r.b_, Bx, Cy);
-  Mpz::submul (r.b_, by, Cx);
+  Mpz::mul (r.b_, tmp.Ax, tmp.Dy);
+  Mpz::addmul (r.b_, tmp.Ay, tmp.Dx);
+  Mpz::submul (r.b_, tmp.Bx, tmp.Cy);
+  Mpz::submul (r.b_, tmp.by, tmp.Cx);
 
 #ifdef BICYCL_WITH_TIMINGS
   _time = get_realtime_ns();
 #endif
-  r.reduction (t0, t1);
+  r.reduction (tmp.t0, tmp.t1);
 #ifdef BICYCL_WITH_TIMINGS
   _nucomp_treduc += get_realtime_ns() - _time;
   _nucomp_ttot += get_realtime_ns() - _time0;
@@ -836,13 +819,11 @@ void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
 
 /* */
 inline
-void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
-                                                  const Mpz &L, bool negf2)
+void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2, const Mpz &L,
+                                                        bool negf2)
 {
-  Mpz Ax, Ay, Bx, By, Cx, Cy, Dx, Dy, m, s, F, u, v, x, y, H, t0, t1, l, q, by,
-      m00, m01, m10, m11;
-  nucomp (r, f1, f2, L, negf2, Ax, Ay, Bx, By, Cx, Cy, Dx, Dy, m, s, F, u, v, x,
-                                y, H, t0, t1, l, q, by, m00, m01, m10, m11);
+  QFI::OpsAuxVars tmp;
+  nucomp (r, f1, f2, L, negf2, tmp);
 }
 
 /*
@@ -878,9 +859,7 @@ void QFI::nucomp (QFI &r, const QFI &f1, const QFI &f2,
  *    v2 orthogonal to row2 <=> c*Ay - b*By + a*Dy == 0
  */
 inline
-void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, Mpz &Ax, Mpz &Dx,
-                        Mpz &m00, Mpz &m01, Mpz &m10, Mpz &m11, Mpz &t0,
-                        Mpz &t1)
+void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, OpsAuxVars &tmp)
 {
 #ifdef BICYCL_WITH_COUNTS
   _nudupl_ncalls++;
@@ -895,16 +874,16 @@ void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, Mpz &Ax, Mpz &Dx,
 #ifdef BICYCL_WITH_TIMINGS
   _time = get_realtime_ns();
 #endif
-  Mpz::gcdext (Ax, m11, m01, f.a_, f.b_);
+  Mpz::gcdext (tmp.Ax, tmp.m11, tmp.m01, f.a_, f.b_);
 #ifdef BICYCL_WITH_TIMINGS
   _nudupl_tgcdext += get_realtime_ns() - _time;
 #endif
 
   /* Set By to a/d and Dy to b/d (resp. stored in a_ and b_) */
-  if (!Ax.is_one ())
+  if (!tmp.Ax.is_one ())
   {
-    Mpz::divexact (r.a_, f.a_, Ax);
-    Mpz::divexact (r.b_, f.b_, Ax);
+    Mpz::divexact (r.a_, f.a_, tmp.Ax);
+    Mpz::divexact (r.b_, f.b_, tmp.Ax);
   }
   else
   {
@@ -913,17 +892,17 @@ void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, Mpz &Ax, Mpz &Dx,
   }
 
   /* Set Dx to -u*c */
-  Mpz::mul (Dx, f.c_, m11);
-  Dx.neg ();
+  Mpz::mul (tmp.Dx, f.c_, tmp.m11);
+  tmp.Dx.neg ();
 
   /* Set Bx to v*c (stored in r.c_) */
-  Mpz::mul (r.c_, f.c_, m01);
+  Mpz::mul (r.c_, f.c_, tmp.m01);
 
   /* Compute q = floor(Bx/By) and set Bx to Bx - q*By (= Bx mod By) and Dx
    * to Dx - q*Dy (i.e., apply matrix [[1, -q], [0, 1]])
    */
-  Mpz::fdiv_qr (t0, r.c_, r.c_, r.a_);
-  Mpz::submul (Dx, t0, r.b_);
+  Mpz::fdiv_qr (tmp.t0, r.c_, r.c_, r.a_);
+  Mpz::submul (tmp.Dx, tmp.t0, r.b_);
 
   /* Partially reduce Bx and By with Euclidean algorithm and compute
    * transformation matrix M.
@@ -931,43 +910,44 @@ void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, Mpz &Ax, Mpz &Dx,
 #ifdef BICYCL_WITH_TIMINGS
   _time = get_realtime_ns();
 #endif
-  Mpz::partial_euclid (m00, m01, m10, m11, r.c_, r.a_, Lsize, t0, t1);
+  Mpz::partial_euclid (tmp.m00, tmp.m01, tmp.m10, tmp.m11, r.c_, r.a_, Lsize,
+                       tmp.t0, tmp.t1);
 #ifdef BICYCL_WITH_TIMINGS
   _nudupl_tpartial += get_realtime_ns() - _time;
 #endif
 
   /* apply M^-1 to (Ax, Ay) and (Dx, Dy) (Ay is stored in t1) */
-  Mpz::mul (t1, Ax, m10);
-  t1.neg (); /* Ax*(-m10) + Ay*m00 (with Ay=0) */
-  Mpz::mul (Ax, Ax, m11); /* Ax*m11 - Ay*m10 (with Ay=0) */
+  Mpz::mul (tmp.t1, tmp.Ax, tmp.m10);
+  tmp.t1.neg (); /* Ax*(-m10) + Ay*m00 (with Ay=0) */
+  Mpz::mul (tmp.Ax, tmp.Ax, tmp.m11); /* Ax*m11 - Ay*m10 (with Ay=0) */
 
-  Mpz::mul (t0, Dx, m11);
-  Mpz::submul (t0, r.b_, m01); /* Dx*m11 - Dy*m01 */
-  Mpz::mul (r.b_, r.b_, m00);
-  Mpz::submul (r.b_, Dx, m10); /* Dx*(-m10) + Dy*m00 */
-  Mpz::swap (t0, Dx);
+  Mpz::mul (tmp.t0, tmp.Dx, tmp.m11);
+  Mpz::submul (tmp.t0, r.b_, tmp.m01); /* Dx*m11 - Dy*m01 */
+  Mpz::mul (r.b_, r.b_, tmp.m00);
+  Mpz::submul (r.b_, tmp.Dx, tmp.m10); /* Dx*(-m10) + Dy*m00 */
+  Mpz::swap (tmp.t0, tmp.Dx);
 
   /* temporarily store Cy*Bx (=By*Bx) in t0 */
-  Mpz::mul (t0, r.a_, r.c_);
+  Mpz::mul (tmp.t0, r.a_, r.c_);
 
   /* a_ = By*Cy - Ay*Dy (with By == Cy) */
   Mpz::mul (r.a_, r.a_, r.a_);
-  Mpz::submul (r.a_, t1, r.b_);
+  Mpz::submul (r.a_, tmp.t1, r.b_);
 
   /* c_ = Bx*Cx - Ax*Dx (with Bx == Cx) */
   Mpz::mul (r.c_, r.c_, r.c_);
-  Mpz::submul (r.c_, Ax, Dx);
+  Mpz::submul (r.c_, tmp.Ax, tmp.Dx);
 
   /* b_ = (Ax*Dy+Ay*Dx) - (Bx*Cy + By*Cx) (with Bx == Cx and By == Cy) */
-  Mpz::mul (r.b_, Ax, r.b_);
-  Mpz::addmul (r.b_, t1, Dx);
-  Mpz::mulby2 (t0, t0); /* mul by 2 */
-  Mpz::sub (r.b_, r.b_, t0);
+  Mpz::mul (r.b_, tmp.Ax, r.b_);
+  Mpz::addmul (r.b_, tmp.t1, tmp.Dx);
+  Mpz::mulby2 (tmp.t0, tmp.t0); /* mul by 2 */
+  Mpz::sub (r.b_, r.b_, tmp.t0);
 
 #ifdef BICYCL_WITH_TIMINGS
   _time = get_realtime_ns();
 #endif
-  r.reduction (t0, t1);
+  r.reduction (tmp.t0, tmp.t1);
 #ifdef BICYCL_WITH_TIMINGS
   _nudupl_treduc += get_realtime_ns() - _time;
   _nudupl_ttot += get_realtime_ns() - _time0;
@@ -978,14 +958,9 @@ void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L, Mpz &Ax, Mpz &Dx,
 inline
 void QFI::nudupl (QFI &r, const QFI &f, const Mpz &L)
 {
-  Mpz Ax, Dx, m00, m01, m10, m11, t0, t1;
-  nudupl (r, f, L, Ax, Dx, m00, m01, m10, m11, t0, t1);
+  QFI::OpsAuxVars tmp;
+  nudupl (r, f, L, tmp);
 }
-
-
-/* Helper macros for exponentiation algos (undef at the end of the file) */
-#define NUDUPL(r, f) nudupl (r, f, L, t00, t01, t02, t03, t04, t05, t06, t07)
-#define NUCOMP(r, f1, f2, negf2) nucomp ((r), (f1), (f2), L, negf2, t00, t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24)
 
 /*
  * Compute the power of a qfi by an integer.
@@ -1010,6 +985,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, const Mpz &L)
   {
     Mpz t00, t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12,
         t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24;
+    QFI::OpsAuxVars tmp;
 
     /* implem of wNAF*: a left to right wNAF (see Brian King, ACNS 2008) */
     const mp_limb_t w = 7;
@@ -1019,10 +995,10 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, const Mpz &L)
     /* precomputation: tab[i] = f^(2*i+1)  for 0 <= i < u = 2^(w-2) */
     QFI ff(f), tab[u];
 
-    NUDUPL (ff, f); /* f^2 */
+    nudupl (ff, f, L, tmp); /* f^2 */
     tab[0] = f;
     for (mp_limb_t i = 1; i < u; i++)
-      NUCOMP (tab[i], tab[i-1], ff, 0); /* tab[i] <- tab[i-1]*ff */
+      nucomp (tab[i], tab[i-1], ff, L, 0, tmp); /* tab[i] <- tab[i-1]*ff */
 
     int j = n.nbits() - 1;
     mp_limb_t c;
@@ -1040,7 +1016,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, const Mpz &L)
       r = t == 2 ? ff : tab[t>>1];
       size_t b = ((size_t) j) < w-1 ? tau+1+j-w : tau;
       for (size_t i = 0; i < b; i++)
-        NUDUPL (r, r);
+        nudupl (r, r, L, tmp);
       j -= w;
     }
 
@@ -1053,7 +1029,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, const Mpz &L)
 
       if (c == dj)
       {
-        NUDUPL (r, r);
+        nudupl (r, r, L, tmp);
         j -= 1;
       }
       else
@@ -1067,17 +1043,17 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, const Mpz &L)
         size_t tau = val2 < w ? val2 : w-1;
         t >>= tau;
         for (size_t i = 0; i < w-tau; i++)
-          NUDUPL (r, r);
-        NUCOMP (r, r, t == 2 ? ff : tab[t>>1], neg);
+          nudupl (r, r, L, tmp);
+        nucomp (r, r, t == 2 ? ff : tab[t>>1], L, neg, tmp);
         size_t b = ((size_t) j) < w-1 ? tau+1+j-w : tau;
         for (size_t i = 0; i < b; i++)
-          NUDUPL (r, r);
+          nudupl (r, r, L, tmp);
         j -= w;
       }
     }
 
     if (c)
-      NUCOMP (r, r, tab[0], 1);
+      nucomp (r, r, tab[0], L, 1, tmp);
 
     /* toggle the result if n is negative */
     if (n.sgn () < 0)
@@ -1118,14 +1094,15 @@ void QFI::nupow (QFI &r, const QFI &f0, const Mpz &n0,
   {
     Mpz t00, t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12,
         t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24;
+    QFI::OpsAuxVars tmp;
 
     /* precomputation */
     QFI tab[4];
 
     tab[0] = f0;
     tab[1] = f1;
-    NUCOMP (tab[2], f0, f1, 0);
-    NUCOMP (tab[3], f0, f1, 1);
+    nucomp (tab[2], f0, f1, L, 0, tmp);
+    nucomp (tab[3], f0, f1, L, 1, tmp);
 
     JSF jsf (n0, n1);
 
@@ -1144,23 +1121,23 @@ void QFI::nupow (QFI &r, const QFI &f0, const Mpz &n0,
     {
       uint8_t d = jsf[j-1];
 
-      NUDUPL (r, r);
+      nudupl (r, r, L, tmp);
       if (d == 0x01) /* f0 */
-        NUCOMP (r, r, tab[0], 0);
+        nucomp (r, r, tab[0], L, 0, tmp);
       else if (d == 0x03) /* f0^-1 */
-        NUCOMP (r, r, tab[0], 1);
+        nucomp (r, r, tab[0], L, 1, tmp);
       else if (d == 0x10) /* f1 */
-        NUCOMP (r, r, tab[1], 0);
+        nucomp (r, r, tab[1], L, 0, tmp);
       else if (d == 0x30) /* f1^-1 */
-        NUCOMP (r, r, tab[1], 1);
+        nucomp (r, r, tab[1], L, 1, tmp);
       else if (d == 0x11) /* f0 * f1 */
-        NUCOMP (r, r, tab[2], 0);
+        nucomp (r, r, tab[2], L, 0, tmp);
       else if (d == 0x13) /* f0^-1 * f1 */
-        NUCOMP (r, r, tab[3], 1);
+        nucomp (r, r, tab[3], L, 1, tmp);
       else if (d == 0x31) /* f0 * f1^-1 */
-        NUCOMP (r, r, tab[3], 0);
+        nucomp (r, r, tab[3], L, 0, tmp);
       else if (d == 0x33) /* f0^-1 * f1^-1 */
-        NUCOMP (r, r, tab[2], 1);
+        nucomp (r, r, tab[2], L, 1, tmp);
     }
   }
 }
@@ -1197,6 +1174,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
   {
     Mpz t00, t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12,
         t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24;
+    QFI::OpsAuxVars tmp;
 
     Mpz::mod2k (t00, n, d);
     Mpz::divby2k (t01, n, d);
@@ -1222,8 +1200,8 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
     {
       for (size_t k = 0; k < B; k++)
       {
-        NUCOMP (tab[pow3+k],   tab[pow3-1], tab[k], 0);
-        NUCOMP (tab[pow3-k-2], tab[pow3-1], tab[k], 1);
+        nucomp (tab[pow3+k],   tab[pow3-1], tab[k], L, 0, tmp);
+        nucomp (tab[pow3-k-2], tab[pow3-1], tab[k], L, 1, tmp);
       }
     }
 
@@ -1233,7 +1211,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
     {
       uint8_t digh = jsf[j-1];
 
-      NUDUPL (r, r);
+      nudupl (r, r, L, tmp);
 
       if (digh != 0)
       {
@@ -1244,7 +1222,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
 
         bool s = idx < 0 ? true : false;
         idx = idx < 0 ? -idx : idx;
-        NUCOMP (r, r, tab[idx-1], s);
+        nucomp (r, r, tab[idx-1], L, s, tmp);
       }
     }
 
@@ -1253,7 +1231,7 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
       uint8_t digh = jsf[j-1];
       uint8_t digl = jsf[j-e-1];
 
-      NUDUPL (r, r);
+      nudupl (r, r, L, tmp);
 
       if (digh != 0 || digl != 0)
       {
@@ -1266,14 +1244,11 @@ void QFI::nupow (QFI &r, const QFI &f, const Mpz &n, size_t d, size_t e,
 
         bool s = idx < 0 ? true : false;
         idx = idx < 0 ? -idx : idx;
-        NUCOMP (r, r, tab[idx-1], s);
+        nucomp (r, r, tab[idx-1], L, s, tmp);
       }
     }
   }
 }
-
-#undef NUDUPL
-#undef NUCOMP
 
 /* */
 template<>
@@ -1486,12 +1461,12 @@ inline
 void ClassGroup::nudupl (QFI &r, const QFI &f, size_t niter) const
 {
   Mpz L = default_nucomp_bound();
-  Mpz t0, t1, t2, t3, t4, t5, t6, t7;
+  QFI::OpsAuxVars tmp;
   if (niter > 0)
   {
-    QFI::nudupl (r, f, L, t0, t1, t2, t3, t4, t5, t6, t7);
+    QFI::nudupl (r, f, L, tmp);
     for (size_t i = 1; i < niter; i++)
-      QFI::nudupl (r, r, L, t0, t1, t2, t3, t4, t5, t6, t7);
+      QFI::nudupl (r, r, L, tmp);
   }
 }
 
