@@ -23,6 +23,7 @@
 
 #include <gmp.h>
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <algorithm>
