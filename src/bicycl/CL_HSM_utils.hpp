@@ -111,6 +111,8 @@ namespace BICYCL
 
       public:
         /* constructors */
+        CL_HSM_CipherText() = default;
+
         CL_HSM_CipherText (const Cryptosystem &,
                            const CL_HSM_PublicKey<Cryptosystem> &,
                            const CL_HSM_ClearText<Cryptosystem> &,
