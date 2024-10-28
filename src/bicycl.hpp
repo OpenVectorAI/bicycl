@@ -21,10 +21,6 @@
 #ifndef BICYCL_BICYCL_HPP
 #define BICYCL_BICYCL_HPP
 
-#ifndef BICYCL_GMP_PRIMALITY_TESTS_ITERATION
-#define BICYCL_GMP_PRIMALITY_TESTS_ITERATION 30
-#endif
-
 #include "bicycl/gmp_extras.hpp"
 #include "bicycl/openssl_wrapper.hpp"
 #include "bicycl/qfi.hpp"

@@ -29,6 +29,10 @@
 #include <algorithm>
 #include <vector>
 
+#ifndef BICYCL_GMP_PRIMALITY_TESTS_ITERATION
+#define BICYCL_GMP_PRIMALITY_TESTS_ITERATION 30
+#endif
+
 namespace BICYCL
 {
   namespace _gmp_impl
