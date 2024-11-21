@@ -62,6 +62,8 @@ namespace BICYCL
         /* constructors */
         CL_HSM_PublicKey (const Cryptosystem &,
                           const CL_HSM_SecretKey<Cryptosystem> &);
+        CL_HSM_PublicKey (const Cryptosystem &,
+                          const QFI&);
 
         /* getters */
         const QFI & elt () const;
@@ -127,10 +129,13 @@ namespace BICYCL
                            const CL_HSM_CipherText &,
                            const Mpz &,
                            const Mpz &);
+        CL_HSM_CipherText (QFI &&, QFI &&);
 
         /* getters */
         const QFI & c1 () const;
         const QFI & c2 () const;
+        QFI& c1();
+        QFI& c2();
     };
 
     #include "CL_HSM_utils.inl"

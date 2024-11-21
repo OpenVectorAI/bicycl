@@ -121,6 +121,7 @@ namespace BICYCL
       void prime_to (const Mpz &l);
       void prime_to_2exp ();
 
+    public:
       /* compositions and exponentiations */
       static void nucomp (QFI &, const QFI &, const QFI &, const Mpz &,
                           bool negf2);
