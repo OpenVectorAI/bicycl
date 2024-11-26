@@ -246,6 +246,15 @@ inline CL_HSM_CipherText<Cryptosystem>::CL_HSM_CipherText(const Cryptosystem &C,
 }
 
 template <class Cryptosystem>
+inline CL_HSM_CipherText<Cryptosystem>::CL_HSM_CipherText(
+    const Cryptosystem& C,
+    const CL_HSM_ClearText<Cryptosystem>& m, const QFI& c1, const QFI& pkr)
+    : c1_(c1), c2_(pkr) {
+    QFI fm = C.power_of_f(m);          /* fm = [q^2, q, ...]^m */
+    C.Cl_Delta().nucomp(c2_, c2_, fm); /* c2 = f^m*pk^r */
+}
+
+template <class Cryptosystem>
 inline CL_HSM_CipherText<Cryptosystem>::CL_HSM_CipherText(QFI &&c1, QFI &&c2)
     : c1_(std::move(c1)), c2_(std::move(c2))
 {

@@ -251,14 +251,14 @@ Mpz::Mpz (Mpz &&v)
   PTR(v.mpz_) = NULL;
 }
 
-#if 0
-/* */
+
 inline
-Mpz::Mpz (mpz_srcptr v)
+Mpz::Mpz (mpz_t&& v)
 {
-  mpz_init_set (mpz_, v);
+  mpz_->_mp_alloc = v->_mp_alloc;
+  mpz_->_mp_size = v->_mp_size;
+  mpz_->_mp_d = v->_mp_d;
 }
-#endif
 
 /* */
 inline

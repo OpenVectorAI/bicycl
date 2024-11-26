@@ -95,6 +95,7 @@ namespace BICYCL
       explicit Mpz (long);
       explicit Mpz (const std::string &);
       explicit Mpz (mpf_srcptr);
+      explicit Mpz (mpz_t &&);
       explicit Mpz (const std::vector<unsigned char> &);
 
       /* destructor */
