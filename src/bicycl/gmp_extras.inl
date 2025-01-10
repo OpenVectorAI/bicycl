@@ -1401,12 +1401,14 @@ void Mpz::partial_euclid (Mpz &u00, Mpz &u01, Mpz &u10, Mpz &u11, Mpz &a,
 }
 
 /* */
+inline
 std::ostream & operator<< (std::ostream &o, const Mpz &v)
 {
   return o << v.mpz_;
 }
 
 /* */
+inline
 std::istream & operator>> (std::istream &i, Mpz &v)
 {
   return i >> v.mpz_;

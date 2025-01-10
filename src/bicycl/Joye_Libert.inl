@@ -244,11 +244,13 @@ JoyeLibert::ClearText JoyeLibert::decrypt (const SecretKey &sk,
   return ClearText (*this, sk, c);
 }
 
+inline
 const Mpz & JoyeLibert::encrypt_randomness_bound (const PublicKey & pk) const
 {
   return pk.N();
 }
 
+inline
 const Mpz & JoyeLibert::cleartext_bound () const
 {
   return twotothek_;

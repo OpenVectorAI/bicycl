@@ -496,6 +496,7 @@ CL_HSM2k::PublicKey CL_HSM2k::keygen (const SecretKey &sk) const
  *  m: the plaintext to encrypt
  *  r: randomness
  */
+inline
 CL_HSM2k::CipherText CL_HSM2k::encrypt (const PublicKey &pk,
                                         const ClearText &m, const Mpz &r) const
 {
@@ -506,6 +507,7 @@ CL_HSM2k::CipherText CL_HSM2k::encrypt (const PublicKey &pk,
 /*
  * Same as above but without the randomness
  */
+inline
 CL_HSM2k::CipherText CL_HSM2k::encrypt (const PublicKey &pk, const ClearText &m,
                                         RandGen &randgen) const
 {
@@ -520,6 +522,7 @@ CL_HSM2k::CipherText CL_HSM2k::encrypt (const PublicKey &pk, const ClearText &m,
  *  sk: the secret key
  *  c: the ciphertext
  */
+inline
 CL_HSM2k::ClearText CL_HSM2k::decrypt (const SecretKey &sk, const CipherText &c)
                                                                           const
 {
