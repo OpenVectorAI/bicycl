@@ -108,8 +108,8 @@ inline CL_HSM_ClearText<Cryptosystem>::CL_HSM_ClearText(const Cryptosystem &C,
                                                         const Mpz &v)
     : Mpz(v)
 {
-  // if (!(v.sgn() >= 0 && v < C.cleartext_bound()))
-  //   throw std::range_error("Cleartext is negative or too large");
+  if (!(v.sgn() >= 0 && v < C.cleartext_bound()))
+    throw std::range_error("Cleartext is negative or too large");
 }
 
 /* */
